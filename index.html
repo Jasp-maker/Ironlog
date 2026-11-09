@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="description" content="Your personal four-day gym workout tracker.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>IronLog — Gym Tracker</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#151d30;--panel2:#1c2940;--line:#2a3852;--muted:#9aabc4;--text:#f4f7fb;--accent:#a3e635;--accentText:#17210a;--red:#fb7185}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding-bottom:90px}
+header{padding:22px 18px 14px;background:linear-gradient(145deg,#17243a,#0b1020);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
+.brand{font-size:12px;letter-spacing:.18em;color:var(--accent);font-weight:800}.headrow{display:flex;align-items:center;justify-content:space-between;gap:12px}h1{font-size:25px;margin:4px 0 0}h2{font-size:20px;margin:0 0 12px}h3{font-size:16px;margin:0}
+main{max-width:720px;margin:auto;padding:18px}
+nav{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(3,1fr);background:#111a2b;border-top:1px solid var(--line);padding:8px 8px calc(8px + env(safe-area-inset-bottom));z-index:10}
+nav button{border:0;background:none;color:var(--muted);padding:9px 4px;font-size:12px;font-weight:700}nav button.active{color:var(--accent)}nav span{display:block;font-size:20px;margin-bottom:2px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:16px;margin:0 0 14px}
+.hero{background:linear-gradient(135deg,#263b20,#172b25);border-color:#45632b}
+.muted{color:var(--muted)}.small{font-size:13px}.pill{display:inline-block;background:#29374d;border-radius:30px;padding:5px 10px;font-size:12px;color:#d6e2f4;font-weight:700}
+button,.btn{cursor:pointer;border:0;border-radius:12px;padding:12px 15px;font-weight:800;font-size:14px;background:var(--accent);color:var(--accentText)}
+button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+button.ghost{background:transparent;color:var(--muted);padding:8px}
+button.danger{background:#442331;color:#ffd9df}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap}
+.daygrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.day{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:left;color:var(--text)}
+.day strong{display:block;margin:5px 0}.day small{color:var(--muted)}
+.exercise{padding:14px 0;border-top:1px solid var(--line)}.exercise:first-of-type{border-top:0}
+.sethead,.setrow{display:grid;grid-template-columns:34px 1fr 1fr;gap:8px;align-items:center}
+.sethead{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px}
+.setrow{margin:7px 0}.setnum{font-size:13px;color:var(--muted);text-align:center}
+input{width:100%;min-width:0;border:1px solid #35445e;background:#0d1525;color:var(--text);padding:11px 9px;border-radius:10px;font-size:16px}
+input:focus{outline:2px solid var(--accent);border-color:transparent}
+label{font-size:12px;color:var(--muted);display:block;margin:0 0 5px}
+.progressbar{height:9px;border-radius:20px;background:#29374d;overflow:hidden;margin:10px 0}.progressbar i{display:block;height:100%;background:var(--accent);width:0}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.stat{background:var(--panel2);padding:12px;border-radius:12px}.stat b{font-size:21px;display:block}.stat small{color:var(--muted)}
+select{background:#0d1525;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:15px}
+.hidden{display:none!important}.notice{padding:12px;border-radius:12px;background:#17283a;color:#cbd8ea;font-size:13px}
+footer{text-align:center;color:var(--muted);font-size:11px;padding:15px}
+@media(min-width:600px){main{padding:24px}.daygrid{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<header><div class="headrow"><div><div class="brand">IRONLOG</div><h1>Your training log</h1></div><span class="pill">4-DAY PLAN</span></div></header>
+<main>
+<section id="todayPage">
+ <div class="card hero"><div class="muted small" id="todayDate"></div><h2 id="todayTitle" style="margin:5px 0">Ready when you are</h2><p class="small" id="todaySub">Choose a session to get started.</p><div class="actions"><button id="startToday">Open today's workout</button><button class="secondary" id="chooseWorkout">Choose session</button></div></div>
+ <h2>This week's plan</h2><div class="daygrid" id="weekPlan"></div>
+ <div class="card" style="margin-top:14px"><div class="row"><h3>Recent activity</h3><span class="muted small" id="recentCount">No sessions yet</span></div><div id="recentList" class="small muted" style="margin-top:10px">Completed workouts will appear here.</div></div>
+</section>
+<section id="workoutPage" class="hidden">
+ <div class="row" style="margin-bottom:12px"><button class="secondary" id="backHome">← Home</button><span class="pill" id="workoutDay"></span></div>
+ <div class="card"><div class="row"><div><h2 id="workoutTitle"></h2><div class="muted small" id="workoutMeta"></div></div><span class="pill" id="doneCount">0 / 0</span></div><div class="progressbar"><i id="workoutProgress"></i></div><p class="small muted">Log each set separately. Entries save automatically on this device.</p></div>
+ <div id="exerciseList"></div>
+ <div class="card"><div class="row"><div><h3>Finish session</h3><div class="muted small">Save this workout to your history.</div></div><button id="finishWorkout">Complete workout</button></div></div>
+</section>
+<section id="programmePage" class="hidden">
+ <h2>Your programme</h2><p class="muted small">Four sessions per week. Keep 1–2 good reps in reserve on most working sets.</p><div id="programmeList"></div>
+ <div class="notice">Warm up gradually and do a few lighter ramp-up sets before your first heavy compound lift. Rest around 2 minutes on big lifts and 60–75 seconds on isolation work.</div>
+</section>
+<section id="progressPage" class="hidden">
+ <h2>Your progress</h2><div class="statgrid">
+ <div class="stat"><b id="totalSessions">0</b><small>Sessions logged</small></div>
+ <div class="stat"><b id="totalSets">0</b><small>Sets recorded</small></div>
+ <div class="stat"><b id="bestLift">—</b><small>Heaviest set (kg)</small></div></div>
+ <div class="card" style="margin-top:14px"><h3>Recent workouts</h3><div id="historyList" class="small muted" style="margin-top:10px">Your completed sessions will show here.</div></div>
+ <div class="card"><h3>Backup your log</h3><p class="small muted">Your entries are stored on this device. Export a backup regularly, especially before changing phones or clearing browser data.</p><div class="actions"><button id="exportData">Export backup</button><label class="btn secondary" style="display:inline-flex;align-items:center">Import backup<input id="importData" type="file" accept="application/json" hidden></label></div></div>
+ <div class="card"><h3>Reset data</h3><p class="small muted">This permanently clears workout entries saved on this device.</p><button class="danger" id="resetData">Reset workout data</button></div>
+</section>
+</main>
+<nav><button class="active" data-page="todayPage"><span>⌂</span>Today</button><button data-page="programmePage"><span>▤</span>Programme</button><button data-page="progressPage"><span>↗</span>Progress</button></nav>
+<footer>IRONLOG · Your training, your progress</footer>
+<script>
+const plan = {
+ Push:{day:"Monday",focus:"Chest · Shoulders · Triceps",items:[
+ ["Barbell bench press",3,"6–8"],["Incline dumbbell press",3,"8–10"],["Seated shoulder press",2,"8–10"],["Cable lateral raise",3,"12–15"],["Rope triceps pushdown",3,"10–12"],["Overhead cable extension",2,"12–15"]]},
+ Pull:{day:"Tuesday",focus:"Back · Rear delts · Biceps",items:[
+ ["Lat pulldown",3,"8–12"],["Chest-supported row",3,"8–10"],["Seated cable row",2,"10–12"],["Reverse pec deck",2,"12–15"],["EZ-bar curl",3,"8–12"],["Hammer curl",2,"10–12"]]},
+ Legs:{day:"Thursday",focus:"Quads · Hamstrings · Glutes · Calves",items:[
+ ["Squat",3,"6–8"],["Romanian deadlift",3,"8–10"],["Leg press",2,"10–12"],["Seated leg curl",2,"10–12"],["Leg extension",2,"12–15"],["Standing calf raise",3,"12–15"]]},
+ Abs:{day:"Saturday",focus:"Core · Conditioning",items:[
+ ["Cable crunch",3,"12–15"],["Hanging knee raise",3,"10–15"],["Ab wheel",2,"8–12"],["Pallof press",2,"12 each side"],["Plank",2,"45–60 sec"]]}
+};
+const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const sessionByDay={Monday:"Push",Tuesday:"Pull",Thursday:"Legs",Saturday:"Abs"};
+const KEY="ironlog_v1";
+let db=load(), current=null, draft={};
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||{history:[]}}catch(e){return {history:[]}}}
+function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function todayName(){return days[(new Date().getDay()+6)%7]}
+function showPage(id){document.querySelectorAll("main section").forEach(s=>s.classList.add("hidden"));document.getElementById(id).classList.remove("hidden");document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===id));if(id==="progressPage")renderProgress()}
+function renderHome(){
+ const d=todayName(), name=sessionByDay[d];document.getElementById("todayDate").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
+ document.getElementById("todayTitle").textContent=name?`${name} day`:"Recovery day";
+ document.getElementById("todaySub").textContent=name?`${plan[name].focus} · ${plan[name].items.length} exercises`:"Rest, recover and get ready for your next session.";
+ document.getElementById("startToday").disabled=!name;document.getElementById("startToday").style.opacity=name?1:.45;
+ document.getElementById("weekPlan").innerHTML=days.map(day=>{let n=sessionByDay[day];return `<button class="day" data-session="${n||""}"><small>${day}</small><strong>${n||"Rest / recovery"}</strong><small>${n?plan[n].items.length+" exercises":"Recovery"}</small></button>`}).join("");
+ document.querySelectorAll(".day[data-session]").forEach(b=>b.onclick=()=>b.dataset.session&&openWorkout(b.dataset.session));
+ const hist=db.history.slice(-3).reverse();document.getElementById("recentCount").textContent=db.history.length?`${db.history.length} completed`:"No sessions yet";
+ document.getElementById("recentList").innerHTML=hist.length?hist.map(h=>`<div style="padding:7px 0;border-top:1px solid var(--line)"><b>${h.name}</b> · ${new Date(h.date).toLocaleDateString()} <span class="muted">· ${h.sets} sets</span></div>`).join(""):"Completed workouts will appear here.";
+}
+function openWorkout(name){
+ current=name;draft={};const saved=db.history.find(h=>h.dateKey===new Date().toDateString()&&h.name===name);
+ if(saved) draft=JSON.parse(JSON.stringify(saved.entries));
+ else plan[name].items.forEach((it,i)=>draft[i]=Array.from({length:it[1]},()=>({weight:"",reps:""})));
+ document.getElementById("workoutDay").textContent=plan[name].day.toUpperCase();document.getElementById("workoutTitle").textContent=name;
+ document.getElementById("workoutMeta").textContent=plan[name].focus;renderExercises();showPage("workoutPage");
+}
+function renderExercises(){
+ const items=plan[current].items;let total=0,filled=0;
+ document.getElementById("exerciseList").innerHTML=items.map((it,i)=>{
+ const sets=draft[i]||[];total+=it[1];filled+=sets.filter(s=>s.weight!==""||s.reps!=="").length;
+ return `<div class="card"><div class="row"><div><h3>${i+1}. ${it[0]}</h3><div class="muted small">${it[1]} sets · target ${it[2]}</div></div><span class="pill">${sets.filter(s=>s.weight!==""||s.reps!=="").length}/${it[1]}</span></div><div class="sethead"><div>Set</div><div>Weight (kg)</div><div>Reps</div></div>${sets.map((s,j)=>`<div class="setrow"><div class="setnum">${j+1}</div><input inputmode="decimal" type="number" min="0" step="0.5" placeholder="e.g. 60" aria-label="${it[0]} set ${j+1} weight" data-ex="${i}" data-set="${j}" data-field="weight" value="${esc(s.weight)}"><input inputmode="numeric" type="number" min="0" step="1" placeholder="e.g. 8" aria-label="${it[0]} set ${j+1} reps" data-ex="${i}" data-set="${j}" data-field="reps" value="${esc(s.reps)}"></div>`).join("")}</div>`;
+ }).join("");
+ document.querySelectorAll("#exerciseList input").forEach(inp=>inp.addEventListener("input",e=>{let x=e.target;draft[x.dataset.ex][x.dataset.set][x.dataset.field]=x.value;updateCounts()}));
+ updateCounts();
+}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function updateCounts(){let total=0,done=0;plan[current].items.forEach((it,i)=>{total+=it[1];done+=(draft[i]||[]).filter(s=>s.weight!==""||s.reps!=="").length});document.getElementById("doneCount").textContent=`${done} / ${total}`;document.getElementById("workoutProgress").style.width=(total?done/total*100:0)+"%"}
+function finish(){
+ const entries=draft;let sets=0;Object.values(entries).forEach(a=>sets+=a.filter(s=>s.weight!==""||s.reps!=="").length);
+ if(!sets){alert("Add at least one set before completing this workout.");return}
+ const record={name:current,date:new Date().toISOString(),dateKey:new Date().toDateString(),sets,entries};
+ const idx=db.history.findIndex(h=>h.dateKey===record.dateKey&&h.name===current);if(idx>=0)db.history[idx]=record;else db.history.push(record);
+ save();renderHome();showPage("todayPage");alert(`${current} workout saved. Nice work!`);
+}
+function renderProgramme(){document.getElementById("programmeList").innerHTML=Object.entries(plan).map(([name,p])=>`<div class="card"><div class="row"><div><h3>${p.day} · ${name}</h3><div class="muted small">${p.focus}</div></div><button class="secondary" data-open="${name}">Log workout</button></div><ol class="small">${p.items.map(x=>`<li style="padding:4px 0">${x[0]} — ${x[1]} × ${x[2]}</li>`).join("")}</ol></div>`).join("");document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openWorkout(b.dataset.open))}
+function renderProgress(){
+ let sets=0,best=0;db.history.forEach(h=>Object.values(h.entries||{}).forEach(a=>a.forEach(s=>{if(s.weight!==""&&Number(s.weight)>best)best=Number(s.weight)})));
+ db.history.forEach(h=>sets+=h.sets||0);
+ document.getElementById("totalSessions").textContent=db.history.length;document.getElementById("totalSets").textContent=sets;document.getElementById("bestLift").textContent=best||"—";
+ const hist=db.history.slice().reverse();document.getElementById("historyList").innerHTML=hist.length?hist.map(h=>`<div style="padding:9px 0;border-top:1px solid var(--line)"><div class="row"><b>${h.name}</b><span class="muted">${new Date(h.date).toLocaleDateString()}</span></div><span class="muted">${h.sets} sets logged</span></div>`).join(""):"No completed workouts yet.";
+}
+document.getElementById("startToday").onclick=()=>{let n=sessionByDay[todayName()];if(n)openWorkout(n)};
+document.getElementById("chooseWorkout").onclick=()=>showPage("programmePage");
+document.getElementById("backHome").onclick=()=>{renderHome();showPage("todayPage")};
+document.getElementById("finishWorkout").onclick=finish;
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{if(b.dataset.page==="todayPage")renderHome();if(b.dataset.page==="programmePage")renderProgramme();showPage(b.dataset.page)});
+document.getElementById("exportData").onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ironlog-backup.json";a.click();URL.revokeObjectURL(a.href)};
+document.getElementById("importData").onchange=async e=>{try{let data=JSON.parse(await e.target.files[0].text());if(!Array.isArray(data.history))throw Error();db=data;save();renderHome();renderProgress();alert("Backup imported.")}catch(err){alert("That backup file could not be read.")}e.target.value=""};
+document.getElementById("resetData").onclick=()=>{if(confirm("Delete all workout history on this device? Export a backup first if you want to keep it.")){db={history:[]};save();renderProgress();renderHome()}};
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+renderHome();
+</script>
+</body></html>
