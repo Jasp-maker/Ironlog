@@ -47,6 +47,9 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:15px}
 <main>
 <section id="todayPage">
  <div class="card hero"><div class="muted small" id="todayDate"></div><h2 id="todayTitle" style="margin:5px 0">Ready when you are</h2><p class="small" id="todaySub">Choose a session to get started.</p><div class="actions"><button id="startToday">Open today's workout</button><button class="secondary" id="chooseWorkout">Choose session</button></div></div>
+ <div class="card" id="cycleHome" style="margin-top:14px">
+ <div class="row"><div><div class="brand">12-WEEK TRAINING BLOCK</div><h2 id="cycleHeading" style="margin:5px 0">Week 1 of 12</h2><div class="muted small" id="cyclePhase"></div></div><span class="pill" id="cycleBadge">BUILD</span></div>
+ <div class="progressbar"><i id="cycleProgress"></i></div><div class="small muted" id="cycleAdvice"></div></div>
  <h2>This week's plan</h2><div class="daygrid" id="weekPlan"></div>
  <div class="card" style="margin-top:14px"><div class="row"><h3>Recent activity</h3><span class="muted small" id="recentCount">No sessions yet</span></div><div id="recentList" class="small muted" style="margin-top:10px">Completed workouts will appear here.</div></div>
 </section>
@@ -57,7 +60,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:15px}
  <div class="card"><div class="row"><div><h3>Finish session</h3><div class="muted small">Save this workout to your history.</div></div><button id="finishWorkout">Complete workout</button></div></div>
 </section>
 <section id="programmePage" class="hidden">
- <h2>Your programme</h2><p class="muted small">Four sessions per week. Keep 1–2 good reps in reserve on most working sets.</p><div id="programmeList"></div>
+ <h2>Your programme</h2><p class="muted small">Four sessions per week. Keep 1–2 good reps in reserve on most working sets.</p><div class="card"><div class="brand">12-WEEK TRAINING BLOCK</div><h2 id="programmeWeekTitle">Week 1 of 12</h2><p class="small muted" id="programmeWeekText"></p><label for="programmeStart">Programme start date</label><div class="row"><input id="programmeStart" type="date"><button id="saveProgrammeStart">Save</button></div><p class="small muted">Set this to the Monday of your first training week. IronLog advances through the phases automatically.</p></div><div id="programmeList"></div>
  <div class="notice">Warm up gradually and do a few lighter ramp-up sets before your first heavy compound lift. Rest around 2 minutes on big lifts and 60–75 seconds on isolation work.</div>
 </section>
 <section id="progressPage" class="hidden">
@@ -87,12 +90,18 @@ const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunda
 const sessionByDay={Monday:"Push",Tuesday:"Pull",Thursday:"Legs",Saturday:"Abs"};
 const KEY="ironlog_v1";
 let db=load(), current=null, draft={};
-function load(){try{return JSON.parse(localStorage.getItem(KEY))||{history:[]}}catch(e){return {history:[]}}}
+function localDateISO(d=new Date()){const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY))||{};if(!Array.isArray(d.history))d.history=[];if(!d.settings)d.settings={};if(!d.settings.startDate)d.settings.startDate=localDateISO();return d}catch(e){return {history:[],settings:{startDate:localDateISO()}}}}
+function currentWeek(){const start=new Date((db.settings?.startDate||localDateISO())+"T00:00:00");const now=new Date();const days=Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate())-start)/86400000);return Math.max(1,Math.min(12,Math.floor(days/7)+1))}
+function phaseFor(w){if(w<=2)return {name:"Foundation",badge:"BASELINE",advice:"Find repeatable working weights. Prioritise clean technique and leave 2–3 reps in reserve."};if(w<=4)return {name:"Progressive reps",badge:"PROGRESS",advice:"Build reps within each target range. When every set reaches the top of the range with good form, increase the load next time."};if(w<=6)return {name:"Progressive overload",badge:"BUILD",advice:"Keep adding reps or a small amount of weight while keeping 1–2 reps in reserve."};if(w===7)return {name:"Deload / recovery",badge:"DELOAD",advice:"Reduce working sets by around half and use lighter loads. Finish every set feeling fresh."};if(w<=10)return {name:"Strength and load",badge:"BUILD",advice:"Return to normal sets and build from your pre-deload performance. Add load gradually."};return {name:"Peak progression",badge:"PUSH",advice:"Aim for strong, controlled top-end reps. Increase weight only when all prescribed reps are achieved with sound form."}}
+function prescription(name,i){const base=plan[name].items[i],w=currentWeek();return {sets:w===7?Math.max(1,Math.ceil(base[1]/2)):base[1],target:base[2],deload:w===7}}
+function previousExercise(name,i){for(let h=db.history.length-1;h>=0;h--){const rec=db.history[h];if(rec.name!==name)continue;const a=rec.entries?.[i];if(a?.some(s=>s.weight!==""||s.reps!==""))return {sets:a};}return null}
+function renderCycle(){const w=currentWeek(),p=phaseFor(w);["cycleHeading","programmeWeekTitle"].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=`Week ${w} of 12`});const phase=document.getElementById("cyclePhase");if(phase)phase.textContent=p.name;const badge=document.getElementById("cycleBadge");if(badge)badge.textContent=p.badge;const bar=document.getElementById("cycleProgress");if(bar)bar.style.width=(w/12*100)+"%";const advice=document.getElementById("cycleAdvice");if(advice)advice.textContent=p.advice;const pt=document.getElementById("programmeWeekText");if(pt)pt.textContent=p.advice;const input=document.getElementById("programmeStart");if(input)input.value=db.settings.startDate||localDateISO()}
 function save(){localStorage.setItem(KEY,JSON.stringify(db))}
 function todayName(){return days[(new Date().getDay()+6)%7]}
 function showPage(id){document.querySelectorAll("main section").forEach(s=>s.classList.add("hidden"));document.getElementById(id).classList.remove("hidden");document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===id));if(id==="progressPage")renderProgress()}
 function renderHome(){
- const d=todayName(), name=sessionByDay[d];document.getElementById("todayDate").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
+ renderCycle();const d=todayName(), name=sessionByDay[d];document.getElementById("todayDate").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
  document.getElementById("todayTitle").textContent=name?`${name} day`:"Recovery day";
  document.getElementById("todaySub").textContent=name?`${plan[name].focus} · ${plan[name].items.length} exercises`:"Rest, recover and get ready for your next session.";
  document.getElementById("startToday").disabled=!name;document.getElementById("startToday").style.opacity=name?1:.45;
@@ -104,39 +113,41 @@ function renderHome(){
 function openWorkout(name){
  current=name;draft={};const saved=db.history.find(h=>h.dateKey===new Date().toDateString()&&h.name===name);
  if(saved) draft=JSON.parse(JSON.stringify(saved.entries));
- else plan[name].items.forEach((it,i)=>draft[i]=Array.from({length:it[1]},()=>({weight:"",reps:""})));
+ else plan[name].items.forEach((it,i)=>draft[i]=Array.from({length:prescription(name,i).sets},()=>({weight:"",reps:""})));
  document.getElementById("workoutDay").textContent=plan[name].day.toUpperCase();document.getElementById("workoutTitle").textContent=name;
  document.getElementById("workoutMeta").textContent=plan[name].focus;renderExercises();showPage("workoutPage");
 }
 function renderExercises(){
  const items=plan[current].items;let total=0,filled=0;
  document.getElementById("exerciseList").innerHTML=items.map((it,i)=>{
- const sets=draft[i]||[];total+=it[1];filled+=sets.filter(s=>s.weight!==""||s.reps!=="").length;
- return `<div class="card"><div class="row"><div><h3>${i+1}. ${it[0]}</h3><div class="muted small">${it[1]} sets · target ${it[2]}</div></div><span class="pill">${sets.filter(s=>s.weight!==""||s.reps!=="").length}/${it[1]}</span></div><div class="sethead"><div>Set</div><div>Weight (kg)</div><div>Reps</div></div>${sets.map((s,j)=>`<div class="setrow"><div class="setnum">${j+1}</div><input inputmode="decimal" type="number" min="0" step="0.5" placeholder="e.g. 60" aria-label="${it[0]} set ${j+1} weight" data-ex="${i}" data-set="${j}" data-field="weight" value="${esc(s.weight)}"><input inputmode="numeric" type="number" min="0" step="1" placeholder="e.g. 8" aria-label="${it[0]} set ${j+1} reps" data-ex="${i}" data-set="${j}" data-field="reps" value="${esc(s.reps)}"></div>`).join("")}</div>`;
+ const rx=prescription(current,i),sets=draft[i]||[],prev=previousExercise(current,i);total+=rx.sets;filled+=sets.filter(s=>s.weight!==""||s.reps!=="").length;
+ const prevText=prev?`Previous session: ${prev.sets.filter(s=>s.weight!==""||s.reps!=="").map(s=>(s.weight?s.weight+" kg":"")+(s.reps?" × "+s.reps+" reps":"")).filter(Boolean).join(" · ")}`:"No previous entry yet — use this session to establish your baseline.";
+ return `<div class="card"><div class="row"><div><h3>${i+1}. ${it[0]}</h3><div class="muted small">${rx.sets} sets · target ${rx.target}${rx.deload?" · deload":""}</div></div><span class="pill">${sets.filter(s=>s.weight!==""||s.reps!=="").length}/${rx.sets}</span></div><div class="notice small" style="margin-top:9px">${esc(prevText)}</div><div class="sethead"><div>Set</div><div>Weight (kg)</div><div>Reps</div></div>${sets.map((s,j)=>`<div class="setrow"><div class="setnum">${j+1}</div><input inputmode="decimal" type="number" min="0" step="0.5" placeholder="e.g. 60" aria-label="${it[0]} set ${j+1} weight" data-ex="${i}" data-set="${j}" data-field="weight" value="${esc(s.weight)}"><input inputmode="numeric" type="number" min="0" step="1" placeholder="e.g. 8" aria-label="${it[0]} set ${j+1} reps" data-ex="${i}" data-set="${j}" data-field="reps" value="${esc(s.reps)}"></div>`).join("")}</div>`;
  }).join("");
  document.querySelectorAll("#exerciseList input").forEach(inp=>inp.addEventListener("input",e=>{let x=e.target;draft[x.dataset.ex][x.dataset.set][x.dataset.field]=x.value;updateCounts()}));
  updateCounts();
 }
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function updateCounts(){let total=0,done=0;plan[current].items.forEach((it,i)=>{total+=it[1];done+=(draft[i]||[]).filter(s=>s.weight!==""||s.reps!=="").length});document.getElementById("doneCount").textContent=`${done} / ${total}`;document.getElementById("workoutProgress").style.width=(total?done/total*100:0)+"%"}
+function updateCounts(){let total=0,done=0;plan[current].items.forEach((it,i)=>{total+=prescription(current,i).sets;done+=(draft[i]||[]).filter(s=>s.weight!==""||s.reps!=="").length});document.getElementById("doneCount").textContent=`${done} / ${total}`;document.getElementById("workoutProgress").style.width=(total?done/total*100:0)+"%"}
 function finish(){
  const entries=draft;let sets=0;Object.values(entries).forEach(a=>sets+=a.filter(s=>s.weight!==""||s.reps!=="").length);
  if(!sets){alert("Add at least one set before completing this workout.");return}
- const record={name:current,date:new Date().toISOString(),dateKey:new Date().toDateString(),sets,entries};
+ const record={name:current,week:currentWeek(),date:new Date().toISOString(),dateKey:new Date().toDateString(),sets,entries};
  const idx=db.history.findIndex(h=>h.dateKey===record.dateKey&&h.name===current);if(idx>=0)db.history[idx]=record;else db.history.push(record);
  save();renderHome();showPage("todayPage");alert(`${current} workout saved. Nice work!`);
 }
-function renderProgramme(){document.getElementById("programmeList").innerHTML=Object.entries(plan).map(([name,p])=>`<div class="card"><div class="row"><div><h3>${p.day} · ${name}</h3><div class="muted small">${p.focus}</div></div><button class="secondary" data-open="${name}">Log workout</button></div><ol class="small">${p.items.map(x=>`<li style="padding:4px 0">${x[0]} — ${x[1]} × ${x[2]}</li>`).join("")}</ol></div>`).join("");document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openWorkout(b.dataset.open))}
+function renderProgramme(){renderCycle();document.getElementById("programmeList").innerHTML=Object.entries(plan).map(([name,p])=>`<div class="card"><div class="row"><div><h3>${p.day} · ${name}</h3><div class="muted small">${p.focus}</div></div><button class="secondary" data-open="${name}">Log workout</button></div><ol class="small">${p.items.map((x,i)=>{const rx=prescription(name,i);return `<li style="padding:4px 0">${x[0]} — ${rx.sets} × ${rx.target}${rx.deload?" (deload)":""}</li>`}).join("")}</ol></div>`).join("");document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openWorkout(b.dataset.open))}
 function renderProgress(){
  let sets=0,best=0;db.history.forEach(h=>Object.values(h.entries||{}).forEach(a=>a.forEach(s=>{if(s.weight!==""&&Number(s.weight)>best)best=Number(s.weight)})));
  db.history.forEach(h=>sets+=h.sets||0);
  document.getElementById("totalSessions").textContent=db.history.length;document.getElementById("totalSets").textContent=sets;document.getElementById("bestLift").textContent=best||"—";
- const hist=db.history.slice().reverse();document.getElementById("historyList").innerHTML=hist.length?hist.map(h=>`<div style="padding:9px 0;border-top:1px solid var(--line)"><div class="row"><b>${h.name}</b><span class="muted">${new Date(h.date).toLocaleDateString()}</span></div><span class="muted">${h.sets} sets logged</span></div>`).join(""):"No completed workouts yet.";
+ const hist=db.history.slice().reverse();document.getElementById("historyList").innerHTML=hist.length?hist.map(h=>`<div style="padding:9px 0;border-top:1px solid var(--line)"><div class="row"><b>${h.name}</b><span class="muted">${new Date(h.date).toLocaleDateString()}</span></div><span class="muted">${h.sets} sets logged · Week ${h.week||"—"}</span></div>`).join(""):"No completed workouts yet.";
 }
 document.getElementById("startToday").onclick=()=>{let n=sessionByDay[todayName()];if(n)openWorkout(n)};
 document.getElementById("chooseWorkout").onclick=()=>showPage("programmePage");
 document.getElementById("backHome").onclick=()=>{renderHome();showPage("todayPage")};
 document.getElementById("finishWorkout").onclick=finish;
+document.getElementById("saveProgrammeStart").onclick=()=>{const v=document.getElementById("programmeStart").value;if(!v){alert("Choose a programme start date.");return}db.settings.startDate=v;save();renderCycle();renderHome();renderProgramme();alert("12-week programme schedule updated.")};
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{if(b.dataset.page==="todayPage")renderHome();if(b.dataset.page==="programmePage")renderProgramme();showPage(b.dataset.page)});
 document.getElementById("exportData").onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ironlog-backup.json";a.click();URL.revokeObjectURL(a.href)};
 document.getElementById("importData").onchange=async e=>{try{let data=JSON.parse(await e.target.files[0].text());if(!Array.isArray(data.history))throw Error();db=data;save();renderHome();renderProgress();alert("Backup imported.")}catch(err){alert("That backup file could not be read.")}e.target.value=""};

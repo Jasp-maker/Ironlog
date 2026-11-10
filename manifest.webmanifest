@@ -1,7 +1,7 @@
 {
   "name": "IronLog \u2014 Gym Tracker",
   "short_name": "IronLog",
-  "description": "Your personal four-day gym workout tracker.",
+  "description": "Your progressive 12-week gym workout tracker.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

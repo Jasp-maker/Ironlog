@@ -24,3 +24,13 @@ GITHUB PAGES QUICK ROUTE
 5. Wait for the site address to appear, open it on your Android phone, then install it from Chrome.
 
 This is a static app; it does not need a server or account. Keep the repository public if using the free GitHub Pages option. Do not put private information in the repository.
+
+12-WEEK PROGRESSION UPGRADE
+- Programme week is calculated automatically from the start date.
+- Set the start date to the Monday of your first training week in Programme.
+- Weeks 1–2 establish baseline loads and technique.
+- Weeks 3–6 and 8–12 guide progressive overload using previous logged performance.
+- Week 7 automatically halves planned working sets (rounded up) as a deload.
+- Previous logged weights/reps are shown beside each exercise to guide the next session.
+- Existing workout history is preserved because the storage key remains ironlog_v1.
+- Service-worker cache is versioned to v2 so the updated app can install cleanly.
