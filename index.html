@@ -38,6 +38,7 @@ label{font-size:12px;color:var(--muted);display:block;margin:0 0 5px}
 .statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.stat{background:var(--panel2);padding:12px;border-radius:12px}.stat b{font-size:21px;display:block}.stat small{color:var(--muted)}
 select{background:#0d1525;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:15px}
 .hidden{display:none!important}.notice{padding:12px;border-radius:12px;background:#17283a;color:#cbd8ea;font-size:13px}
+.history-card{padding:13px 0;border-top:1px solid var(--line)}.history-detail{margin-top:10px;background:var(--panel2);border-radius:12px;padding:11px}.history-detail summary{cursor:pointer;color:var(--accent);font-weight:800;font-size:13px}.history-exercise{padding:10px 0;border-top:1px solid var(--line)}.history-exercise:first-child{border-top:0}.history-sets{display:grid;grid-template-columns:42px 1fr 1fr;gap:8px;font-size:13px;margin-top:6px}.history-sets span{padding:5px 7px;background:#0d1525;border-radius:7px}.history-sets .head{color:var(--muted);background:transparent;font-size:11px;text-transform:uppercase}
 footer{text-align:center;color:var(--muted);font-size:11px;padding:15px}
 @media(min-width:600px){main{padding:24px}.daygrid{grid-template-columns:repeat(4,1fr)}}
 </style>
@@ -141,7 +142,17 @@ function renderProgress(){
  let sets=0,best=0;db.history.forEach(h=>Object.values(h.entries||{}).forEach(a=>a.forEach(s=>{if(s.weight!==""&&Number(s.weight)>best)best=Number(s.weight)})));
  db.history.forEach(h=>sets+=h.sets||0);
  document.getElementById("totalSessions").textContent=db.history.length;document.getElementById("totalSets").textContent=sets;document.getElementById("bestLift").textContent=best||"—";
- const hist=db.history.slice().reverse();document.getElementById("historyList").innerHTML=hist.length?hist.map(h=>`<div style="padding:9px 0;border-top:1px solid var(--line)"><div class="row"><b>${h.name}</b><span class="muted">${new Date(h.date).toLocaleDateString()}</span></div><span class="muted">${h.sets} sets logged · Week ${h.week||"—"}</span></div>`).join(""):"No completed workouts yet.";
+ const hist=db.history.slice().reverse();
+ document.getElementById("historyList").innerHTML=hist.length?hist.map((h,hi)=>{
+   const date=h.date?new Date(h.date).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"}):"Date unavailable";
+   const exerciseRows=Object.keys(h.entries||{}).sort((a,b)=>Number(a)-Number(b)).map(key=>{
+     const setsForExercise=h.entries[key]||[];const exerciseName=plan[h.name]?.items?.[Number(key)]?.[0]||`Exercise ${Number(key)+1}`;
+     const completed=setsForExercise.filter(s=>s&&(s.weight!==""||s.reps!==""));
+     if(!completed.length)return `<div class="history-exercise"><b>${esc(exerciseName)}</b><div class="muted small">No sets recorded</div></div>`;
+     return `<div class="history-exercise"><b>${esc(exerciseName)}</b><div class="history-sets"><span class="head">Set</span><span class="head">Weight</span><span class="head">Reps</span>${completed.map((set,j)=>`<span>${j+1}</span><span>${set.weight!==""?esc(set.weight)+" kg":"—"}</span><span>${set.reps!==""?esc(set.reps):"—"}</span>`).join("")}</div></div>`;
+   }).join("");
+   return `<div class="history-card"><div class="row"><b>${esc(h.name||"Workout")}</b><span class="muted small">${date}</span></div><span class="muted small">${h.sets||0} sets logged · Week ${h.week||"—"}</span><details class="history-detail"><summary>View exercises, weights &amp; reps</summary><div style="margin-top:8px">${exerciseRows||'<div class="muted small">No exercise details were saved for this session.</div>'}</div></details></div>`;
+ }).join(""):"No completed workouts yet.";
 }
 document.getElementById("startToday").onclick=()=>{let n=sessionByDay[todayName()];if(n)openWorkout(n)};
 document.getElementById("chooseWorkout").onclick=()=>showPage("programmePage");
