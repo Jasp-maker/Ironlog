@@ -3,7 +3,7 @@ IRONLOG — ANDROID HOME-SCREEN GYM TRACKER
 WHAT'S INCLUDED
 - Four-day Push / Pull / Legs / Abs programme
 - Individual weight and reps entry for every set
-- Local autosave, workout history and basic progress totals
+- Local autosave, workout history with expandable exercise / set / weight / reps detail, and basic progress totals
 - JSON backup export/import
 - Offline app shell after first successful load
 
@@ -33,4 +33,4 @@ This is a static app; it does not need a server or account. Keep the repository 
 - Week 7 automatically halves planned working sets (rounded up) as a deload.
 - Previous logged weights/reps are shown beside each exercise to guide the next session.
 - Existing workout history is preserved because the storage key remains ironlog_v1.
-- Service-worker cache is versioned to v2 so the updated app can install cleanly.
+- Service-worker cache is versioned to v3 so the updated app can install cleanly.
