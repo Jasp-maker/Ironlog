@@ -23,7 +23,7 @@ self.addEventListener("activate", event => {
       .then(keys =>
         Promise.all(
           keys
-            .filter(key => key !== CACHE)
+            .filter(key => key.startsWith("ironlog-shell-") && key !== CACHE)
             .map(key => caches.delete(key))
         )
       )
