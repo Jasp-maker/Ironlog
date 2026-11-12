@@ -7,6 +7,7 @@ const FILES = [
   "./manifest.webmanifest",
   "./icon.svg",
   "./ironlog-upgrade.js"
+  "./ironlog-library.js"
 ];
 
 self.addEventListener("install", event => {
