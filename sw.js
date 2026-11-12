@@ -1,4 +1,5 @@
-const CACHE = "ironlog-shell-v5";
+
+const CACHE = "ironlog-shell-v6";
 
 const FILES = [
   "./",
@@ -6,7 +7,8 @@ const FILES = [
   "./manifest.webmanifest",
   "./icon.svg",
   "./ironlog-upgrade.js",
-  "./ironlog-library.js"
+  "./ironlog-library.js",
+  "./ironlog-visuals.js"
 ];
 
 self.addEventListener("install", event => {
@@ -23,7 +25,10 @@ self.addEventListener("activate", event => {
       .then(keys =>
         Promise.all(
           keys
-            .filter(key => key.startsWith("ironlog-shell-") && key !== CACHE)
+            .filter(key =>
+              key.startsWith("ironlog-shell-") &&
+              key !== CACHE
+            )
             .map(key => caches.delete(key))
         )
       )
