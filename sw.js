@@ -1,5 +1,4 @@
-
-const CACHE = "ironlog-shell-v4";
+const CACHE = "ironlog-shell-v5";
 
 const FILES = [
   "./",
@@ -7,7 +6,7 @@ const FILES = [
   "./manifest.webmanifest",
   "./icon.svg",
   "./ironlog-upgrade.js",
-"./ironlog-library.js"
+  "./ironlog-library.js"
 ];
 
 self.addEventListener("install", event => {
