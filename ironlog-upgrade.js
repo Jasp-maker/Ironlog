@@ -1,5 +1,5 @@
 
-/* IRONLOG ADAPTIVE PROGRESS COACH v4
+/* IRONLOG ADAPTIVE PROGRESS COACH v4.1
    Individual rep targets, smart load progression, recovery flags,
    personal records, strength trends, weekly score and workout recovery.
    Preserves ironlog_v1 history and ironlog_draft_v1.
@@ -10,12 +10,13 @@
 
   const DRAFT_KEY = "ironlog_draft_v1";
 
-  const originalOpenWorkout = openWorkout;
-  const originalRenderExercises = renderExercises;
-  const originalFinish = finish;
-  const originalRenderHome = renderHome;
-  const originalRenderProgress = renderProgress;
-  const originalPrescription = prescription;
+  // Capture the ORIGINAL global functions before overriding them.
+  const originalOpenWorkout = window.openWorkout;
+  const originalRenderExercises = window.renderExercises;
+  const originalFinish = window.finish;
+  const originalRenderHome = window.renderHome;
+  const originalRenderProgress = window.renderProgress;
+  const originalPrescription = window.prescription;
 
   // ---------- SAFE DATA HELPERS ----------
 
@@ -152,21 +153,22 @@
 
     const allTop = reps.every(value => value >= range.max);
 
-    // When every set reaches the top, the next session
-    // starts at the lower end of the range.
     if (allTop) {
       return reps.map(() => range.min);
     }
 
-    // Otherwise build each set independently.
     return reps.map(value => {
       if (value < range.min) return range.min;
       return Math.min(range.max, value + 1);
     });
   }
 
-  function prescription(name, index) {
+  // IMPORTANT: This is deliberately named adaptivePrescription.
+  // It does NOT shadow the original global prescription function.
+
+  function adaptivePrescription(name, index) {
     const base = originalPrescription(name, index);
+
     const aim = base.deload
       ? null
       : nextRepAim(name, index, base);
@@ -185,6 +187,9 @@
       nextAim: aim
     };
   }
+
+  // Install the adaptive version globally, after capturing the original.
+  window.prescription = adaptivePrescription;
 
   // ---------- ADAPTIVE COACH ----------
 
@@ -242,13 +247,14 @@
     const allTop = reps.every(value => value >= range.max);
     const belowMinimum = reps.some(value => value < range.min);
 
-    // Compare with the previous complete session.
     if (records.length >= 2) {
       const older = records[records.length - 2];
       const olderRows = older.entries[index].slice(0, rx.sets);
+
       const olderTotal = olderRows.reduce(
         (sum, set) => sum + Number(set.reps), 0
       );
+
       const currentTotal = reps.reduce(
         (sum, value) => sum + value, 0
       );
@@ -286,6 +292,7 @@
 
       if (load !== null) {
         const increment = load < 20 ? 1 : 2.5;
+
         const suggested = Math.ceil(
           (load + increment) * 2
         ) / 2;
@@ -450,6 +457,7 @@
 
       workout.items.forEach((item, index) => {
         const baseSets = item[1];
+
         const prescribed = Number(record.week) === 7
           ? Math.max(1, Math.ceil(baseSets / 2))
           : baseSets;
@@ -474,9 +482,11 @@
     });
 
     const sessionScore = Math.min(recent.length / 4, 1) * 50;
+
     const completion = expectedSets
       ? Math.min(sets / expectedSets, 1)
       : 0;
+
     const score = Math.round(sessionScore + completion * 50);
 
     return {
@@ -648,7 +658,7 @@
 
   // ---------- WORKOUT SCREEN ----------
 
-  renderExercises = function () {
+  window.renderExercises = function () {
     originalRenderExercises();
 
     const cards = document.querySelectorAll(
@@ -718,7 +728,7 @@
 
   // ---------- WORKOUT RECOVERY ----------
 
-  openWorkout = function (name) {
+  window.openWorkout = function (name) {
     const saved = readDraft();
 
     if (saved && saved.name !== name) {
@@ -780,7 +790,7 @@
     saveDraft();
   };
 
-  finish = function () {
+  window.finish = function () {
     const hasEntries = Object.values(draft || {}).some(rows =>
       Array.isArray(rows) &&
       rows.some(set =>
@@ -799,10 +809,11 @@
     renderHome();
   };
 
-  renderHome = function () {
+  window.renderHome = function () {
     originalRenderHome();
 
     const saved = readDraft();
+
     const hero = document.querySelector(
       "#todayPage .hero"
     );
@@ -977,7 +988,7 @@
     updateChart();
   }
 
-  renderProgress = function () {
+  window.renderProgress = function () {
     originalRenderProgress();
     renderCoachDashboard();
   };
@@ -989,7 +1000,7 @@
   );
 
   if (finishButton) {
-    finishButton.onclick = finish;
+    finishButton.onclick = window.finish;
   }
 
   window.addEventListener("pagehide", saveDraft);
@@ -1005,6 +1016,5 @@
 
   renderHome();
 
-  console.log("IronLog Adaptive Progress Coach v4 loaded.");
-
+  console.log("IronLog Adaptive Progress Coach v4.1 loaded.");
 })();
