@@ -1,7 +1,7 @@
 
-/* IRONLOG PROGRESS COACH v3
-   Adaptive training, smart progression, personal records,
-   strength trends, weekly reports and workout recovery.
+/* IRONLOG ADAPTIVE PROGRESS COACH v4
+   Individual rep targets, smart load progression, recovery flags,
+   personal records, strength trends, weekly score and workout recovery.
    Preserves ironlog_v1 history and ironlog_draft_v1.
 */
 
@@ -62,24 +62,19 @@
       value > 0 ? value : null;
   }
 
-  function validSets(record, index) {
-    const sets = record?.entries?.[index];
-
-    return Array.isArray(sets)
-      ? sets.filter(s =>
-          s &&
-          s.reps !== "" &&
-          Number.isFinite(Number(s.reps)) &&
-          Number(s.reps) > 0
-        )
-      : [];
+  function validSet(set) {
+    return !!set &&
+      set.reps !== "" &&
+      Number.isFinite(Number(set.reps)) &&
+      Number(set.reps) > 0;
   }
 
   function recordsFor(name, index) {
     return db.history
       .filter(record =>
         record.name === name &&
-        validSets(record, index).length
+        Array.isArray(record.entries?.[index]) &&
+        record.entries[index].some(validSet)
       )
       .slice()
       .sort((a, b) =>
@@ -87,14 +82,17 @@
       );
   }
 
-  function exerciseName(name, index) {
-    return plan[name]?.items?.[index]?.[0] ||
-      `Exercise ${index + 1}`;
+  function completeRecordsFor(name, index, setCount) {
+    return recordsFor(name, index).filter(record => {
+      const rows = record.entries[index] || [];
+
+      return rows.length >= setCount &&
+        rows.slice(0, setCount).every(validSet);
+    });
   }
 
   function parseTarget(target) {
     const value = String(target);
-
     const range = value.match(/(\d+)\s*[–-]\s*(\d+)/);
 
     if (range) {
@@ -129,16 +127,62 @@
       : (sorted[middle - 1] + sorted[middle]) / 2;
   }
 
-  // ---------- ADAPTIVE PRESCRIPTION ----------
+  function exerciseName(name, index) {
+    return plan[name]?.items?.[index]?.[0] ||
+      `Exercise ${index + 1}`;
+  }
+
+  // ---------- INDIVIDUAL NEXT-SESSION TARGETS ----------
+
+  function nextRepAim(name, index, base) {
+    const range = parseTarget(base.target);
+    if (!range) return null;
+
+    const records = completeRecordsFor(
+      name,
+      index,
+      base.sets
+    );
+
+    if (!records.length) return null;
+
+    const latest = records[records.length - 1];
+    const rows = latest.entries[index].slice(0, base.sets);
+    const reps = rows.map(set => Number(set.reps));
+
+    const allTop = reps.every(value => value >= range.max);
+
+    // When every set reaches the top, the next session
+    // starts at the lower end of the range.
+    if (allTop) {
+      return reps.map(() => range.min);
+    }
+
+    // Otherwise build each set independently.
+    return reps.map(value => {
+      if (value < range.min) return range.min;
+      return Math.min(range.max, value + 1);
+    });
+  }
 
   function prescription(name, index) {
     const base = originalPrescription(name, index);
+    const aim = base.deload
+      ? null
+      : nextRepAim(name, index, base);
+
+    const targetText = aim
+      ? `${base.target} · next aim: ${aim.join(" / ")}`
+      : base.target;
+
     const advice = progression(name, index, base);
 
     return {
       ...base,
+      target: targetText,
       suggestedWeight: advice.suggestedWeight || null,
-      coachTitle: advice.title
+      coachTitle: advice.title,
+      nextAim: aim
     };
   }
 
@@ -148,8 +192,15 @@
     rx = rx || originalPrescription(name, index);
 
     const target = String(rx.target);
-    const range = parseTarget(target);
-    const records = recordsFor(name, index);
+    const range = parseTarget(
+      originalPrescription(name, index).target
+    );
+
+    const records = completeRecordsFor(
+      name,
+      index,
+      rx.sets
+    );
 
     const previous = records.length
       ? records[records.length - 1]
@@ -170,7 +221,7 @@
       return {
         title: "Recovery week",
         detail:
-          "Keep the effort comfortable. Use lighter loads, controlled technique and avoid chasing personal records."
+          "Keep effort comfortable. Use lighter loads, controlled technique and avoid chasing personal records."
       };
     }
 
@@ -178,74 +229,39 @@
       return {
         title: "Build your baseline",
         detail:
-          `Aim for ${target} on each set. IronLog will use your results to personalise future sessions.`
+          `Aim for ${originalPrescription(name, index).target} on each set. IronLog will personalise your next targets as you log sessions.`
       };
     }
 
-    const rows = previous.entries?.[index] || [];
-
-    // Check every required set individually.
-    const required = rows.slice(0, rx.sets);
-
-    const allCompleted =
-      required.length === rx.sets &&
-      required.every(set =>
-        set &&
-        set.reps !== "" &&
-        Number.isFinite(Number(set.reps)) &&
-        Number(set.reps) > 0
-      );
-
-    if (!allCompleted) {
-      return {
-        title: "Complete all working sets",
-        detail:
-          `Your last session did not contain ${rx.sets} fully recorded sets. Complete every prescribed set before IronLog recommends an increase.`
-      };
-    }
-
-    const reps = required.map(set => Number(set.reps));
-    const weights = required
+    const rows = previous.entries[index].slice(0, rx.sets);
+    const reps = rows.map(set => Number(set.reps));
+    const weights = rows
       .map(weightOf)
       .filter(value => value !== null);
 
     const allTop = reps.every(value => value >= range.max);
     const belowMinimum = reps.some(value => value < range.min);
 
-    // Detect a meaningful drop against the previous completed session.
+    // Compare with the previous complete session.
     if (records.length >= 2) {
       const older = records[records.length - 2];
-      const olderRows = older.entries?.[index] || [];
-      const olderRequired = olderRows.slice(0, rx.sets);
+      const olderRows = older.entries[index].slice(0, rx.sets);
+      const olderTotal = olderRows.reduce(
+        (sum, set) => sum + Number(set.reps), 0
+      );
+      const currentTotal = reps.reduce(
+        (sum, value) => sum + value, 0
+      );
 
-      const olderComplete =
-        olderRequired.length === rx.sets &&
-        olderRequired.every(set =>
-          set &&
-          set.reps !== "" &&
-          Number.isFinite(Number(set.reps)) &&
-          Number(set.reps) > 0
-        );
-
-      if (olderComplete) {
-        const olderTotal = olderRequired.reduce(
-          (sum, set) => sum + Number(set.reps), 0
-        );
-
-        const currentTotal = reps.reduce(
-          (sum, value) => sum + value, 0
-        );
-
-        if (
-          olderTotal > 0 &&
-          currentTotal <= olderTotal * 0.8
-        ) {
-          return {
-            title: "Performance dip detected",
-            detail:
-              "Your recorded reps have dropped noticeably compared with the previous session. Keep the load steady, prioritise recovery and reassess next time."
-          };
-        }
+      if (
+        olderTotal > 0 &&
+        currentTotal <= olderTotal * 0.8
+      ) {
+        return {
+          title: "Recovery check",
+          detail:
+            "Your total reps have dropped by 20% or more compared with your previous complete session. Keep the load steady or reduce it if needed. Check sleep, stress and recovery. If this continues, consider a lighter session or deload."
+        };
       }
     }
 
@@ -253,7 +269,7 @@
       return {
         title: "Consolidate your performance",
         detail:
-          `Some sets fell below ${range.min} ${unit}. Keep the load steady or reduce it slightly if necessary to achieve controlled repetitions.`
+          `Some sets fell below ${range.min} ${unit}. Keep the load steady or reduce it slightly if needed to achieve controlled repetitions.`
       };
     }
 
@@ -277,7 +293,7 @@
         return {
           title: "Ready for progressive overload",
           detail:
-            `You achieved ${range.max} ${unit} on every set. Consider ${suggested} kg next time if your technique and recovery are good.`,
+            `You reached ${range.max} ${unit} on every set. Consider ${suggested} kg next time if technique and recovery are good.`,
           suggestedWeight: suggested
         };
       }
@@ -292,7 +308,7 @@
     return {
       title: "Build towards the top of the range",
       detail:
-        `Keep your current working weight and aim to add repetitions towards ${range.max} ${unit}. Increase the load only when all sets reach the target.`
+        `Keep your current working weight and aim to add repetitions towards ${range.max} ${unit}. Increase the load only when all sets reach the top of the range.`
     };
   }
 
@@ -304,9 +320,10 @@
     db.history.forEach(record => {
       if (record.name !== name) return;
 
-      validSets(record, index).forEach(set => {
-        const weight = weightOf(set);
+      (record.entries?.[index] || []).forEach(set => {
+        if (!validSet(set)) return;
 
+        const weight = weightOf(set);
         if (weight === null) return;
 
         const reps = Number(set.reps);
@@ -351,7 +368,9 @@
   function trendFor(name, index) {
     return recordsFor(name, index)
       .map(record => {
-        const sets = validSets(record, index);
+        const sets = (record.entries?.[index] || [])
+          .filter(validSet);
+
         const weights = sets
           .map(weightOf)
           .filter(value => value !== null);
@@ -404,7 +423,7 @@
     `;
   }
 
-  // ---------- WEEKLY REPORT ----------
+  // ---------- WEEKLY REPORT AND SCORE ----------
 
   function weeklyReport() {
     const now = new Date();
@@ -422,32 +441,50 @@
     });
 
     let sets = 0;
+    let expectedSets = 0;
     let volume = 0;
 
     recent.forEach(record => {
-      Object.values(record.entries || {}).forEach(rows => {
-        (Array.isArray(rows) ? rows : []).forEach(set => {
-          if (!set || set.reps === "") return;
+      const workout = plan[record.name];
+      if (!workout) return;
+
+      workout.items.forEach((item, index) => {
+        const baseSets = item[1];
+        const prescribed = Number(record.week) === 7
+          ? Math.max(1, Math.ceil(baseSets / 2))
+          : baseSets;
+
+        expectedSets += prescribed;
+
+        const rows = record.entries?.[index] || [];
+
+        rows.slice(0, prescribed).forEach(set => {
+          if (!validSet(set)) return;
 
           sets++;
 
           const weight = weightOf(set);
           const reps = Number(set.reps);
 
-          if (
-            weight !== null &&
-            Number.isFinite(reps)
-          ) {
+          if (weight !== null) {
             volume += weight * reps;
           }
         });
       });
     });
 
+    const sessionScore = Math.min(recent.length / 4, 1) * 50;
+    const completion = expectedSets
+      ? Math.min(sets / expectedSets, 1)
+      : 0;
+    const score = Math.round(sessionScore + completion * 50);
+
     return {
       sessions: recent.length,
       sets,
-      volume: Math.round(volume)
+      volume: Math.round(volume),
+      score,
+      completion: Math.round(completion * 100)
     };
   }
 
@@ -564,6 +601,24 @@
         width:100%;
         margin-top:10px;
         font-size:12px;
+      }
+      .il-score {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        padding:12px;
+        border-radius:12px;
+        background:var(--panel2);
+        margin:10px 0 16px;
+      }
+      .il-score b {
+        color:var(--accent);
+        font-size:28px;
+      }
+      .il-score small {
+        display:block;
+        color:var(--muted);
       }
     `;
 
@@ -818,7 +873,19 @@
         IRONLOG ADAPTIVE PROGRESS COACH
       </div>
 
-      <h3>Last 7 days</h3>
+      <h3>Weekly training score</h3>
+
+      <div class="il-score">
+        <div>
+          <b>${week.score}%</b>
+          <small>Based on sessions and recorded sets over the last 7 days</small>
+        </div>
+        <span class="pill">${week.sessions} / 4 sessions</span>
+      </div>
+
+      <div class="progressbar">
+        <i style="width:${week.score}%"></i>
+      </div>
 
       <div class="il-coach-grid" style="margin:10px 0 16px">
         <div class="il-coach-stat">
@@ -827,13 +894,18 @@
         </div>
         <div class="il-coach-stat">
           <b>${week.sets}</b>
-          <small>Sets logged</small>
+          <small>Sets recorded</small>
         </div>
         <div class="il-coach-stat">
           <b>${week.volume.toLocaleString()}</b>
           <small>Volume · kg</small>
         </div>
       </div>
+
+      <p class="muted small">
+        Set completion: ${week.completion}% of prescribed sets recorded.
+        The score rewards consistency and logging; it is not a measure of fitness or effort.
+      </p>
 
       <div class="il-coach-heading">
         Strength trend
@@ -880,8 +952,8 @@
       </div>
 
       <p class="muted small" style="margin-top:10px">
-        Progress recommendations are based on recorded performance.
-        Always prioritise good technique and safe training.
+        Progress recommendations use your recorded performance.
+        Always prioritise good technique, sensible effort and recovery.
       </p>
     `;
 
@@ -933,6 +1005,6 @@
 
   renderHome();
 
-  console.log("IronLog Adaptive Progress Coach v3 loaded.");
+  console.log("IronLog Adaptive Progress Coach v4 loaded.");
 
 })();
