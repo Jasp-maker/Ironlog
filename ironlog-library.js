@@ -449,8 +449,6 @@
   renderExercises = function () {
     originalRenderExercises();
 
-    if (current !== "Push" && current !== "Pull") return;
-
     addLibraryStyles();
 
     const cards = document.querySelectorAll("#exerciseList > .card");
