@@ -1,5 +1,6 @@
 
-/* IRONLOG INTELLIGENT TRAINING COACH v6
+/* IRONLOG INTELLIGENT TRAINING COACH v7
+   Premium charcoal / orange / red styling
    Adaptive rep targets
    Intelligent weight recommendations
    Plateau detection
@@ -8,7 +9,6 @@
    Weekly coaching report
    Personal records
    Interactive line and dot strength trends
-   Black / charcoal / orange / red theme
    Workout draft recovery
 
    Preserves:
@@ -19,7 +19,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "v6";
+  const VERSION = "v7";
   const DRAFT_KEY = "ironlog_draft_v1";
 
   const originalOpenWorkout = window.openWorkout;
@@ -37,7 +37,7 @@
     typeof originalRenderProgress !== "function" ||
     typeof originalPrescription !== "function"
   ) {
-    console.error("IronLog v6 could not find all original app functions.");
+    console.error("IronLog v7 could not find all original app functions.");
     return;
   }
 
@@ -951,7 +951,7 @@
     }).join("");
   }
 
-  // ---------- V6 THEME AND STYLES ----------
+  // ---------- V6 COACHING STYLES ----------
 
   function addStyles() {
     if (document.getElementById("il-v6-styles")) return;
@@ -1322,6 +1322,334 @@
     document.head.appendChild(style);
   }
 
+  // ---------- V7 PREMIUM THEME ----------
+
+  function addPremiumStyles() {
+    if (document.getElementById("il-v7-theme-styles")) return;
+
+    const style = document.createElement("style");
+    style.id = "il-v7-theme-styles";
+
+    style.textContent = `
+      :root {
+        color-scheme: dark;
+        --bg: #090B0E !important;
+        --panel: #191D23 !important;
+        --panel2: #252A31 !important;
+        --line: #3A414B !important;
+        --accent: #FF7926 !important;
+        --muted: #B2B8C2 !important;
+        --text: #F5F6F8 !important;
+        --red: #EF4444 !important;
+      }
+
+      html {
+        background: #090B0E !important;
+      }
+
+      body {
+        background: #090B0E !important;
+        color: #F5F6F8 !important;
+      }
+
+      header {
+        background: linear-gradient(145deg,#20252C,#090B0E) !important;
+        border-bottom: 1px solid #343B45 !important;
+      }
+
+      .brand {
+        color: #FF7926 !important;
+      }
+
+      h1,h2,h3,h4,
+      .title,.heading {
+        color: #F5F6F8;
+      }
+
+      .muted,
+      small,
+      label,
+      .small {
+        color: #B2B8C2;
+      }
+
+      .card,
+      .panel,
+      .modal,
+      .notice {
+        background: #191D23 !important;
+        border: 1px solid #353C46 !important;
+        color: #F5F6F8 !important;
+        box-shadow: 0 5px 18px rgba(0,0,0,.16);
+      }
+
+      .hero {
+        background: linear-gradient(135deg,#382519,#202329) !important;
+        border: 1px solid #85491F !important;
+        color: #FFFFFF !important;
+      }
+
+      .hero h2,
+      .hero h3,
+      .hero p {
+        color: #FFFFFF !important;
+      }
+
+      .day {
+        background: #191D23 !important;
+        border: 1px solid #3A414B !important;
+        color: #FFFFFF !important;
+        border-radius: 14px;
+      }
+
+      .day:active {
+        background: #30251F !important;
+      }
+
+      .pill {
+        background: #30251F !important;
+        color: #FFB477 !important;
+        border: 1px solid #754323 !important;
+      }
+
+      button,
+      .btn {
+        background: #FF7926 !important;
+        color: #17191D !important;
+        border: 1px solid #FF7926 !important;
+        border-radius: 12px !important;
+        font-weight: 850 !important;
+      }
+
+      button.secondary,
+      .btn.secondary {
+        background: #292F37 !important;
+        color: #F5F6F8 !important;
+        border: 1px solid #48515D !important;
+      }
+
+      button.ghost {
+        background: transparent !important;
+        color: #D2D6DC !important;
+        border-color: transparent !important;
+      }
+
+      button.danger {
+        background: #501F25 !important;
+        color: #FFD9DC !important;
+        border: 1px solid #A8323E !important;
+      }
+
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      textarea:focus-visible {
+        outline: 2px solid #FF7926 !important;
+        outline-offset: 3px;
+      }
+
+      input,
+      select,
+      textarea {
+        background: #11151A !important;
+        color: #FFFFFF !important;
+        border: 1px solid #48515D !important;
+      }
+
+      input::placeholder,
+      textarea::placeholder {
+        color: #929BA7 !important;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: #FF7926 !important;
+        outline: 1px solid #FF7926 !important;
+      }
+
+      .notice {
+        background: #252B33 !important;
+        color: #E5E9EF !important;
+        border: 1px solid #414A56 !important;
+      }
+
+      .progressbar {
+        background: #353B44 !important;
+        border-radius: 20px;
+        overflow: hidden;
+      }
+
+      .progressbar i {
+        background: linear-gradient(90deg,#F05B22,#FF9A3D) !important;
+        border-radius: 20px;
+      }
+
+      .stat {
+        background: #252A31 !important;
+        border: 1px solid #3A414B !important;
+      }
+
+      .stat b {
+        color: #FF8A3D !important;
+      }
+
+      .history-detail {
+        background: #252A31 !important;
+      }
+
+      .history-detail summary {
+        color: #FF9A50 !important;
+      }
+
+      .history-sets span {
+        background: #11151A !important;
+        color: #F5F6F8 !important;
+      }
+
+      .history-sets .head {
+        background: transparent !important;
+        color: #B2B8C2 !important;
+      }
+
+      /* Distinct bottom navigation tabs */
+
+      nav,
+      .bottom-nav,
+      #bottomNav,
+      .tabbar,
+      .tabs {
+        background: #090B0E !important;
+        border-top: 1px solid #343B45 !important;
+      }
+
+      nav {
+        display: grid !important;
+        grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+        gap: 9px !important;
+        padding: 9px 10px calc(9px + env(safe-area-inset-bottom)) !important;
+      }
+
+      nav button,
+      .bottom-nav button,
+      #bottomNav button,
+      .tabbar button,
+      .tabs button {
+        background: #1B2027 !important;
+        color: #B8C0CA !important;
+        border: 1px solid #363E49 !important;
+        border-radius: 13px !important;
+        min-width: 0;
+        padding: 9px 4px !important;
+        font-size: 12px !important;
+        font-weight: 800 !important;
+        box-shadow: none !important;
+      }
+
+      nav button span,
+      .bottom-nav button span,
+      #bottomNav button span {
+        display: block;
+        font-size: 21px;
+        margin-bottom: 3px;
+      }
+
+      nav button.active,
+      .bottom-nav button.active,
+      #bottomNav button.active,
+      .tabbar button.active,
+      .tabs button.active,
+      nav button[aria-current="page"] {
+        background: #382519 !important;
+        color: #FF8A3D !important;
+        border: 1px solid #FF7926 !important;
+        box-shadow: 0 0 12px rgba(255,121,38,.13) !important;
+      }
+
+      nav button:active,
+      .bottom-nav button:active,
+      #bottomNav button:active {
+        transform: scale(.97);
+      }
+
+      /* Coaching cards */
+
+      .il-coach-card {
+        background: #191D23 !important;
+        border-color: #3A414B !important;
+        color: #F5F6F8 !important;
+      }
+
+      .il-coach-heading {
+        color: #FF8A3D !important;
+      }
+
+      .il-coach-stat {
+        background: #252A31 !important;
+        border-color: #3A414B !important;
+      }
+
+      .il-coach-stat b,
+      .il-pr-value {
+        color: #FF8A3D !important;
+      }
+
+      .il-adaptive-note {
+        background: #30251F !important;
+        border-color: #85491F !important;
+        color: #F5F6F8 !important;
+      }
+
+      .il-adaptive-note strong {
+        color: #FFAA70 !important;
+      }
+
+      .il-alert {
+        background: #351C22 !important;
+        border-color: #B83242 !important;
+      }
+
+      .il-alert strong {
+        color: #FF747F !important;
+      }
+
+      .il-score {
+        background: #252A31 !important;
+        border-color: #3A414B !important;
+      }
+
+      .il-score b {
+        color: #FF8A3D !important;
+      }
+
+      .il-muscle-row,
+      .il-pr-row {
+        border-color: #353C46 !important;
+      }
+
+      /* Existing strength graph deliberately preserved */
+
+      .il-line-chart {
+        background: #202126;
+        border-color: #383940;
+      }
+
+      @media (max-width: 380px) {
+        nav {
+          gap: 6px !important;
+          padding-left: 7px !important;
+          padding-right: 7px !important;
+        }
+
+        nav button {
+          font-size: 11px !important;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
   // ---------- APPLY SUGGESTED WEIGHT ----------
 
   function applySuggestedWeight(index, weight) {
@@ -1350,6 +1678,8 @@
 
   window.renderExercises = function () {
     addStyles();
+    addPremiumStyles();
+
     originalRenderExercises();
 
     const cards = document.querySelectorAll(
@@ -1523,6 +1853,8 @@
 
   window.renderHome = function () {
     addStyles();
+    addPremiumStyles();
+
     originalRenderHome();
 
     const saved = readDraft();
@@ -1566,6 +1898,7 @@
 
   function renderCoachDashboard() {
     addStyles();
+    addPremiumStyles();
 
     const historyCard = document
       .getElementById("historyList")
@@ -1708,6 +2041,8 @@
 
   window.renderProgress = function () {
     addStyles();
+    addPremiumStyles();
+
     originalRenderProgress();
     renderCoachDashboard();
   };
@@ -1715,6 +2050,7 @@
   // ---------- STARTUP ----------
 
   addStyles();
+  addPremiumStyles();
 
   const finishButton = document.getElementById(
     "finishWorkout"
@@ -1738,6 +2074,6 @@
   renderHome();
 
   console.log(
-    "IronLog Intelligent Training Coach v6 loaded."
+    "IronLog Intelligent Training Coach v7 loaded."
   );
 })();
