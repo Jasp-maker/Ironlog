@@ -1,12 +1,14 @@
 
-/* IRONLOG INTELLIGENT TRAINING COACH v5
+/* IRONLOG INTELLIGENT TRAINING COACH v6
    Adaptive rep targets
    Intelligent weight recommendations
    Plateau detection
    Performance and recovery alerts
    Muscle-group progress
    Weekly coaching report
-   Personal records and strength trends
+   Personal records
+   Interactive line and dot strength trends
+   Black / charcoal / orange / red theme
    Workout draft recovery
 
    Preserves:
@@ -17,10 +19,9 @@
 (() => {
   "use strict";
 
-  const VERSION = "v5";
+  const VERSION = "v6";
   const DRAFT_KEY = "ironlog_draft_v1";
 
-  // Capture original app functions before replacing them.
   const originalOpenWorkout = window.openWorkout;
   const originalRenderExercises = window.renderExercises;
   const originalFinish = window.finish;
@@ -36,7 +37,7 @@
     typeof originalRenderProgress !== "function" ||
     typeof originalPrescription !== "function"
   ) {
-    console.error("IronLog v5 could not find all original app functions.");
+    console.error("IronLog v6 could not find all original app functions.");
     return;
   }
 
@@ -521,7 +522,6 @@
     };
   }
 
-  // Install the adaptive global function.
   window.prescription = adaptivePrescription;
 
   // ---------- PERSONAL RECORDS ----------
@@ -597,6 +597,7 @@
             : 0
         };
       })
+      .filter(point => point.weight > 0)
       .slice(-8);
   }
 
@@ -604,37 +605,193 @@
     const trend = trendFor(name, index);
 
     if (!trend.length) {
-      return '<p class="muted small">Log this exercise to start building your strength chart.</p>';
+      return `
+        <div class="il-chart-empty">
+          <div class="il-chart-empty-icon">↗</div>
+          <b>No weighted sessions yet</b>
+          <p>Log a weighted session for this exercise and your strength trend will appear here.</p>
+        </div>
+      `;
     }
 
-    const max = Math.max(
-      1,
-      ...trend.map(point => point.weight)
-    );
+    const width = 640;
+    const height = 230;
+    const left = 48;
+    const right = 22;
+    const top = 32;
+    const bottom = 48;
+
+    const plotWidth = width - left - right;
+    const plotHeight = height - top - bottom;
+
+    const weights = trend.map(point => point.weight);
+    const minWeight = Math.min(...weights);
+    const maxWeight = Math.max(...weights);
+
+    const spread = maxWeight - minWeight;
+    const padding = spread === 0
+      ? Math.max(2, maxWeight * 0.12)
+      : spread * 0.25;
+
+    const low = Math.max(0, minWeight - padding);
+    const high = maxWeight + padding;
+    const range = Math.max(1, high - low);
+
+    const x = i => trend.length === 1
+      ? left + plotWidth / 2
+      : left + (i / (trend.length - 1)) * plotWidth;
+
+    const y = value =>
+      top + ((high - value) / range) * plotHeight;
+
+    const points = trend.map((point, i) => ({
+      ...point,
+      x: x(i),
+      y: y(point.weight)
+    }));
+
+    const linePoints = points
+      .map(point => `${point.x},${point.y}`)
+      .join(" ");
+
+    const gridValues = [
+      high,
+      (high + low) / 2,
+      low
+    ];
+
+    const grid = gridValues.map(value => {
+      const gy = y(value);
+
+      return `
+        <line
+          x1="${left}"
+          y1="${gy}"
+          x2="${width - right}"
+          y2="${gy}"
+          stroke="#45464D"
+          stroke-width="1"
+          stroke-dasharray="4 6"
+        />
+        <text
+          x="${left - 9}"
+          y="${gy + 4}"
+          text-anchor="end"
+          fill="#999AA2"
+          font-size="12"
+        >${Number(value.toFixed(1))}</text>
+      `;
+    }).join("");
+
+    const plottedPoints = points.map((point, i) => {
+      const date = point.date
+        ? new Date(point.date).toLocaleDateString(
+            undefined,
+            { day: "numeric", month: "short" }
+          )
+        : "Session";
+
+      const labelY = Math.max(15, point.y - 16);
+
+      return `
+        <g>
+          <circle
+            cx="${point.x}"
+            cy="${point.y}"
+            r="11"
+            fill="#F97316"
+            opacity=".16"
+          />
+          <circle
+            cx="${point.x}"
+            cy="${point.y}"
+            r="5.5"
+            fill="${i === points.length - 1 ? "#EF4444" : "#F97316"}"
+            stroke="#17181D"
+            stroke-width="2"
+          />
+          <text
+            x="${point.x}"
+            y="${labelY}"
+            text-anchor="middle"
+            fill="#F4F4F5"
+            font-size="12"
+            font-weight="700"
+          >${point.weight} kg</text>
+          <text
+            x="${point.x}"
+            y="${height - 19}"
+            text-anchor="middle"
+            fill="#A1A1AA"
+            font-size="11"
+          >${esc(date)}</text>
+          <title>${esc(date)}: ${point.weight} kg, best set ${point.reps} reps</title>
+        </g>
+      `;
+    }).join("");
+
+    const first = trend[0].weight;
+    const last = trend[trend.length - 1].weight;
+    const difference = last - first;
+
+    const changeText = difference > 0
+      ? `+${difference.toFixed(1)} kg`
+      : difference < 0
+        ? `${difference.toFixed(1)} kg`
+        : "No change";
+
+    const changeClass = difference > 0
+      ? "il-trend-positive"
+      : difference < 0
+        ? "il-trend-negative"
+        : "il-trend-neutral";
 
     return `
-      <div class="il-chart">
-        ${trend.map(point => {
-          const height = point.weight
-            ? Math.max(8, point.weight / max * 100)
-            : 5;
-
-          const date = point.date
-            ? new Date(point.date).toLocaleDateString(
-                undefined,
-                { day: "numeric", month: "short" }
-              )
-            : "Session";
-
-          return `
-            <div class="il-bar-wrap">
-              <div class="il-bar-value">${point.weight || "—"}</div>
-              <div class="il-bar" style="height:${height}%"></div>
-              <div class="il-bar-date">${esc(date)}</div>
-            </div>`;
-        }).join("")}
+      <div class="il-chart-summary">
+        <div>
+          <span class="il-chart-caption">LATEST RECORDED WEIGHT</span>
+          <strong>${last} kg</strong>
+        </div>
+        <div class="${changeClass}">
+          ${changeText}
+          <small>since first plotted session</small>
+        </div>
       </div>
-      <p class="muted small">Highest recorded weight per session · kg</p>
+
+      <div class="il-line-chart">
+        <svg
+          viewBox="0 0 ${width} ${height}"
+          role="img"
+          aria-label="Strength trend showing recorded weight over time"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          ${grid}
+
+          <line
+            x1="${left}"
+            y1="${top}"
+            x2="${left}"
+            y2="${height - bottom + 2}"
+            stroke="#55565C"
+          />
+
+          <polyline
+            points="${linePoints}"
+            fill="none"
+            stroke="#F97316"
+            stroke-width="3.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+
+          ${plottedPoints}
+        </svg>
+      </div>
+
+      <div class="il-chart-legend">
+        <span><i class="il-legend-dot"></i> Recorded working weight</span>
+        <span>Highest set per session · kg</span>
+      </div>
     `;
   }
 
@@ -735,6 +892,7 @@
 
       workout.items.forEach((item, index) => {
         const group = muscleGroups[item[0]] || "Other";
+
         if (!groups[group]) {
           groups[group] = {
             sets: 0,
@@ -793,149 +951,371 @@
     }).join("");
   }
 
-  // ---------- STYLES ----------
+  // ---------- V6 THEME AND STYLES ----------
 
   function addStyles() {
-    if (document.getElementById("il-v5-styles")) return;
+    if (document.getElementById("il-v6-styles")) return;
 
     const style = document.createElement("style");
-    style.id = "il-v5-styles";
+    style.id = "il-v6-styles";
 
     style.textContent = `
+      :root {
+        --bg: #101114 !important;
+        --panel: #1B1C21 !important;
+        --panel2: #26272E !important;
+        --line: #383940 !important;
+        --accent: #F97316 !important;
+        --muted: #A1A1AA !important;
+        --text: #F4F4F5 !important;
+      }
+
+      body {
+        background: #101114 !important;
+        color: #F4F4F5 !important;
+      }
+
+      .card,
+      .hero,
+      .panel,
+      .modal,
+      .notice {
+        background-color: #1B1C21 !important;
+        color: #F4F4F5 !important;
+        border-color: #383940 !important;
+      }
+
+      h1, h2, h3, h4,
+      .title, .heading {
+        color: #F4F4F5;
+      }
+
+      .muted,
+      small,
+      .small {
+        color: #A1A1AA;
+      }
+
+      button {
+        border-color: #45464D;
+      }
+
+      button.primary,
+      button:not(.secondary):not(.danger) {
+        background: #F97316;
+        color: #17181D;
+        border-color: #F97316;
+      }
+
+      button.secondary {
+        background: #292A30;
+        color: #F4F4F5;
+        border-color: #45464D;
+      }
+
+      button.danger {
+        background: #7F1D1D;
+        color: #FEE2E2;
+        border-color: #991B1B;
+      }
+
+      input,
+      select,
+      textarea {
+        background: #202126 !important;
+        color: #F4F4F5 !important;
+        border-color: #45464D !important;
+      }
+
+      input::placeholder,
+      textarea::placeholder {
+        color: #85858E !important;
+      }
+
+      .pill {
+        background: #30231C !important;
+        color: #FDBA74 !important;
+        border: 1px solid #7C3D1B;
+      }
+
+      .progressbar {
+        background: #383940 !important;
+      }
+
+      .progressbar i {
+        background: #F97316 !important;
+      }
+
       .il-coach-card {
-        background:var(--panel);
-        border:1px solid var(--line);
-        border-radius:17px;
-        padding:15px;
-        margin:14px 0;
+        background: #18191E;
+        border: 1px solid #383940;
+        border-radius: 17px;
+        padding: 15px;
+        margin: 14px 0;
+        color: #F4F4F5;
       }
+
       .il-coach-heading {
-        color:var(--accent);
-        font-weight:850;
-        margin-bottom:10px;
+        color: #F97316;
+        font-weight: 850;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
       }
+
       .il-coach-grid {
-        display:grid;
-        grid-template-columns:repeat(3,1fr);
-        gap:8px;
+        display: grid;
+        grid-template-columns: repeat(3,1fr);
+        gap: 8px;
       }
+
       .il-coach-stat {
-        background:var(--panel2);
-        padding:11px 8px;
-        border-radius:11px;
-        min-width:0;
+        background: #26272E;
+        padding: 11px 8px;
+        border-radius: 11px;
+        min-width: 0;
+        border: 1px solid #383940;
       }
+
       .il-coach-stat b {
-        display:block;
-        font-size:19px;
-        overflow-wrap:anywhere;
+        display: block;
+        font-size: 19px;
+        overflow-wrap: anywhere;
+        color: #F97316;
       }
+
       .il-coach-stat small {
-        color:var(--muted);
-        font-size:11px;
+        color: #A1A1AA;
+        font-size: 11px;
       }
-      .il-pr-row,.il-muscle-row {
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        gap:10px;
-        padding:10px 0;
-        border-top:1px solid var(--line);
+
+      .il-pr-row,
+      .il-muscle-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 0;
+        border-top: 1px solid #383940;
       }
-      .il-pr-row:first-child,.il-muscle-row:first-child {
-        border-top:0;
+
+      .il-pr-row:first-child,
+      .il-muscle-row:first-child {
+        border-top: 0;
       }
+
       .il-pr-value {
-        color:var(--accent);
-        font-weight:850;
-        text-align:right;
+        color: #F97316;
+        font-weight: 850;
+        text-align: right;
       }
-      .il-chart {
-        display:flex;
-        align-items:flex-end;
-        gap:7px;
-        height:145px;
-        padding:10px 2px 0;
-        border-bottom:1px solid var(--line);
-      }
-      .il-bar-wrap {
-        flex:1;
-        height:100%;
-        display:flex;
-        flex-direction:column;
-        justify-content:flex-end;
-        align-items:center;
-        min-width:0;
-      }
-      .il-bar {
-        width:75%;
-        min-height:3px;
-        background:var(--accent);
-        border-radius:6px 6px 2px 2px;
-      }
-      .il-bar-value {
-        font-size:10px;
-        color:var(--text);
-        margin-bottom:4px;
-      }
-      .il-bar-date {
-        font-size:9px;
-        color:var(--muted);
-        margin-top:5px;
-        white-space:nowrap;
-      }
+
       .il-select {
-        width:100%;
-        margin:8px 0 12px;
+        width: 100%;
+        margin: 8px 0 12px;
+        padding: 12px;
+        border-radius: 10px;
       }
+
       .il-pr-list {
-        max-height:420px;
-        overflow:auto;
+        max-height: 420px;
+        overflow: auto;
       }
+
       .il-adaptive-note {
-        margin-top:10px;
-        padding:12px;
-        border-radius:12px;
-        background:#17283a;
-        border:1px solid var(--line);
-        font-size:13px;
+        margin-top: 10px;
+        padding: 12px;
+        border-radius: 12px;
+        background: #29231F;
+        border: 1px solid #8A451F;
+        color: #F4F4F5;
+        font-size: 13px;
       }
+
       .il-adaptive-note strong {
-        color:var(--accent);
+        color: #FB923C;
       }
+
       .il-adaptive-action {
-        display:block;
-        width:100%;
-        margin-top:10px;
-        font-size:12px;
+        display: block;
+        width: 100%;
+        margin-top: 10px;
+        font-size: 12px;
       }
+
       .il-alert {
-        border-color:#8b5260;
-        background:#35202d;
+        border-color: #B91C1C;
+        background: #351D21;
       }
+
+      .il-alert strong {
+        color: #F87171;
+      }
+
       .il-score {
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        padding:12px;
-        border-radius:12px;
-        background:var(--panel2);
-        margin:10px 0 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        background: #26272E;
+        border: 1px solid #383940;
+        margin: 10px 0 16px;
       }
+
       .il-score b {
-        color:var(--accent);
-        font-size:28px;
+        color: #F97316;
+        font-size: 28px;
       }
+
       .il-score small {
-        display:block;
-        color:var(--muted);
+        display: block;
+        color: #A1A1AA;
       }
+
       .il-section {
-        margin-top:20px;
+        margin-top: 22px;
       }
+
       .il-section h3 {
-        margin-bottom:8px;
+        margin-bottom: 8px;
+        color: #F4F4F5;
+      }
+
+      .il-chart-summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        background: #26272E;
+        border: 1px solid #383940;
+        border-radius: 12px;
+        padding: 12px;
+        margin: 12px 0 8px;
+      }
+
+      .il-chart-summary strong {
+        display: block;
+        color: #F97316;
+        font-size: 25px;
+        margin-top: 3px;
+      }
+
+      .il-chart-caption {
+        color: #A1A1AA;
+        font-size: 10px;
+        letter-spacing: .7px;
+        font-weight: 800;
+      }
+
+      .il-trend-positive {
+        color: #FB923C;
+        font-size: 16px;
+        font-weight: 850;
+        text-align: right;
+      }
+
+      .il-trend-negative {
+        color: #F87171;
+        font-size: 16px;
+        font-weight: 850;
+        text-align: right;
+      }
+
+      .il-trend-neutral {
+        color: #D4D4D8;
+        font-size: 16px;
+        font-weight: 850;
+        text-align: right;
+      }
+
+      .il-trend-positive small,
+      .il-trend-negative small,
+      .il-trend-neutral small {
+        display: block;
+        color: #A1A1AA;
+        font-size: 10px;
+        font-weight: 500;
+      }
+
+      .il-line-chart {
+        width: 100%;
+        overflow: hidden;
+        background: #202126;
+        border: 1px solid #383940;
+        border-radius: 13px;
+        padding: 8px 4px 0;
+        margin-top: 8px;
+      }
+
+      .il-line-chart svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .il-chart-legend {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 6px;
+        margin: 9px 2px 0;
+        color: #A1A1AA;
+        font-size: 10px;
+      }
+
+      .il-legend-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #F97316;
+        margin-right: 4px;
+      }
+
+      .il-chart-empty {
+        text-align: center;
+        background: #202126;
+        border: 1px dashed #45464D;
+        border-radius: 12px;
+        padding: 22px 14px;
+        margin-top: 10px;
+        color: #F4F4F5;
+      }
+
+      .il-chart-empty-icon {
+        color: #F97316;
+        font-size: 30px;
+        margin-bottom: 8px;
+      }
+
+      .il-chart-empty p {
+        color: #A1A1AA;
+        font-size: 12px;
+        margin-bottom: 0;
+      }
+
+      @media (max-width: 380px) {
+        .il-coach-grid {
+          grid-template-columns: repeat(3,minmax(0,1fr));
+          gap: 5px;
+        }
+
+        .il-coach-stat {
+          padding: 9px 5px;
+        }
+
+        .il-coach-stat b {
+          font-size: 16px;
+        }
+
+        .il-chart-summary {
+          padding: 9px;
+        }
+
+        .il-chart-summary strong {
+          font-size: 21px;
+        }
       }
     `;
 
@@ -969,6 +1349,7 @@
   // ---------- WORKOUT SCREEN ----------
 
   window.renderExercises = function () {
+    addStyles();
     originalRenderExercises();
 
     const cards = document.querySelectorAll(
@@ -1141,6 +1522,7 @@
   };
 
   window.renderHome = function () {
+    addStyles();
     originalRenderHome();
 
     const saved = readDraft();
@@ -1325,11 +1707,14 @@
   }
 
   window.renderProgress = function () {
+    addStyles();
     originalRenderProgress();
     renderCoachDashboard();
   };
 
   // ---------- STARTUP ----------
+
+  addStyles();
 
   const finishButton = document.getElementById(
     "finishWorkout"
@@ -1353,6 +1738,6 @@
   renderHome();
 
   console.log(
-    "IronLog Intelligent Training Coach v5 loaded."
+    "IronLog Intelligent Training Coach v6 loaded."
   );
 })();
