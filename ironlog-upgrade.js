@@ -1,19 +1,21 @@
 
-/* IRONLOG PROGRESS COACH v2
-   Smart progression, personal records, strength trends,
-   weekly report and unfinished workout recovery.
-   Preserves the existing ironlog_v1 history format.
+/* IRONLOG PROGRESS COACH v3
+   Adaptive training, smart progression, personal records,
+   strength trends, weekly reports and workout recovery.
+   Preserves ironlog_v1 history and ironlog_draft_v1.
 */
 
 (() => {
   "use strict";
 
   const DRAFT_KEY = "ironlog_draft_v1";
+
   const originalOpenWorkout = openWorkout;
   const originalRenderExercises = renderExercises;
   const originalFinish = finish;
   const originalRenderHome = renderHome;
   const originalRenderProgress = renderProgress;
+  const originalPrescription = prescription;
 
   // ---------- SAFE DATA HELPERS ----------
 
@@ -33,6 +35,7 @@
 
   function saveDraft() {
     if (!current || !draft || !plan[current]) return;
+
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         name: current,
@@ -51,107 +54,245 @@
     } catch (_) {}
   }
 
+  function weightOf(set) {
+    const value = Number(set?.weight);
+
+    return set?.weight !== "" &&
+      Number.isFinite(value) &&
+      value > 0 ? value : null;
+  }
+
   function validSets(record, index) {
     const sets = record?.entries?.[index];
-    return Array.isArray(sets) ? sets.filter(s =>
-      s && s.reps !== "" && Number.isFinite(Number(s.reps))
-    ) : [];
+
+    return Array.isArray(sets)
+      ? sets.filter(s =>
+          s &&
+          s.reps !== "" &&
+          Number.isFinite(Number(s.reps)) &&
+          Number(s.reps) > 0
+        )
+      : [];
   }
 
   function recordsFor(name, index) {
     return db.history
-      .filter(record => record.name === name &&
-        validSets(record, index).length)
+      .filter(record =>
+        record.name === name &&
+        validSets(record, index).length
+      )
       .slice()
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-  }
-
-  function parseRange(target) {
-    const match = String(target).match(/(\d+)\s*[–-]\s*(\d+)/);
-    return match
-      ? { min: Number(match[1]), max: Number(match[2]) }
-      : null;
-  }
-
-  function weightOf(set) {
-    const value = Number(set?.weight);
-    return set?.weight !== "" && Number.isFinite(value) && value > 0
-      ? value : null;
+      .sort((a, b) =>
+        new Date(a.date || 0) - new Date(b.date || 0)
+      );
   }
 
   function exerciseName(name, index) {
-    return plan[name]?.items?.[index]?.[0] || `Exercise ${index + 1}`;
+    return plan[name]?.items?.[index]?.[0] ||
+      `Exercise ${index + 1}`;
   }
 
-  // ---------- SMART PROGRESSION ----------
+  function parseTarget(target) {
+    const value = String(target);
 
-  function progression(name, index) {
-    const rx = prescription(name, index);
+    const range = value.match(/(\d+)\s*[–-]\s*(\d+)/);
+
+    if (range) {
+      return {
+        min: Number(range[1]),
+        max: Number(range[2]),
+        timed: /sec/i.test(value)
+      };
+    }
+
+    const fixed = value.match(/^(\d+)(?:\s+each side)?$/i);
+
+    if (fixed) {
+      return {
+        min: Number(fixed[1]),
+        max: Number(fixed[1]),
+        timed: false
+      };
+    }
+
+    return null;
+  }
+
+  function median(values) {
+    if (!values.length) return null;
+
+    const sorted = values.slice().sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+
+    return sorted.length % 2
+      ? sorted[middle]
+      : (sorted[middle - 1] + sorted[middle]) / 2;
+  }
+
+  // ---------- ADAPTIVE PRESCRIPTION ----------
+
+  function prescription(name, index) {
+    const base = originalPrescription(name, index);
+    const advice = progression(name, index, base);
+
+    return {
+      ...base,
+      suggestedWeight: advice.suggestedWeight || null,
+      coachTitle: advice.title
+    };
+  }
+
+  // ---------- ADAPTIVE COACH ----------
+
+  function progression(name, index, rx) {
+    rx = rx || originalPrescription(name, index);
+
     const target = String(rx.target);
-    const range = parseRange(target);
-    const previousRecords = recordsFor(name, index);
-    const previous = previousRecords.length
-      ? previousRecords[previousRecords.length - 1] : null;
+    const range = parseTarget(target);
+    const records = recordsFor(name, index);
 
-    const timed = /sec/i.test(target);
+    const previous = records.length
+      ? records[records.length - 1]
+      : null;
+
+    const timed = range?.timed ||
+      /sec/i.test(target);
+
     const eachSide = /each side/i.test(target);
-    const unit = timed ? "seconds" : eachSide ? "reps per side" : "reps";
+
+    const unit = timed
+      ? "seconds"
+      : eachSide
+        ? "reps per side"
+        : "reps";
 
     if (rx.deload) {
       return {
         title: "Recovery week",
-        detail: "Keep the effort comfortable, use controlled technique and avoid chasing personal records."
+        detail:
+          "Keep the effort comfortable. Use lighter loads, controlled technique and avoid chasing personal records."
       };
     }
 
     if (!previous || !range) {
       return {
         title: "Build your baseline",
-        detail: `Aim for ${target} on each set. Record your performance so IronLog can learn your working level.`
+        detail:
+          `Aim for ${target} on each set. IronLog will use your results to personalise future sessions.`
       };
     }
 
-    const completed = validSets(previous, index);
-    const enoughSets = completed.length >= rx.sets;
-    const allTop = enoughSets &&
-      completed.slice(0, rx.sets).every(s =>
-        Number(s.reps) >= range.max
+    const rows = previous.entries?.[index] || [];
+
+    // Check every required set individually.
+    const required = rows.slice(0, rx.sets);
+
+    const allCompleted =
+      required.length === rx.sets &&
+      required.every(set =>
+        set &&
+        set.reps !== "" &&
+        Number.isFinite(Number(set.reps)) &&
+        Number(set.reps) > 0
       );
 
-    const belowTarget = completed.some(s =>
-      Number(s.reps) < range.min
-    );
-
-    const weights = completed.map(weightOf).filter(v => v !== null);
-    const load = weights.length ? Math.max(...weights) : null;
-
-    if (allTop && load !== null && !timed) {
-      const increment = load < 20 ? 1 : 2.5;
-      const suggested = Math.ceil((load + increment) * 2) / 2;
-
-      return {
-        title: "Ready to consider an increase",
-        detail: `You reached ${range.max} reps on all ${rx.sets} sets last time. Consider approximately ${suggested} kg next time if your technique and recovery are good.`
-      };
-    }
-
-    if (belowTarget) {
-      return {
-        title: "Consolidate your performance",
-        detail: `Keep the load steady and work towards at least ${range.min} ${unit} on every set. Reduce the load if needed to maintain good form.`
-      };
-    }
-
-    if (!enoughSets) {
+    if (!allCompleted) {
       return {
         title: "Complete all working sets",
-        detail: `You recorded ${completed.length} of ${rx.sets} sets last time. Aim to complete all prescribed sets within ${target}.`
+        detail:
+          `Your last session did not contain ${rx.sets} fully recorded sets. Complete every prescribed set before IronLog recommends an increase.`
+      };
+    }
+
+    const reps = required.map(set => Number(set.reps));
+    const weights = required
+      .map(weightOf)
+      .filter(value => value !== null);
+
+    const allTop = reps.every(value => value >= range.max);
+    const belowMinimum = reps.some(value => value < range.min);
+
+    // Detect a meaningful drop against the previous completed session.
+    if (records.length >= 2) {
+      const older = records[records.length - 2];
+      const olderRows = older.entries?.[index] || [];
+      const olderRequired = olderRows.slice(0, rx.sets);
+
+      const olderComplete =
+        olderRequired.length === rx.sets &&
+        olderRequired.every(set =>
+          set &&
+          set.reps !== "" &&
+          Number.isFinite(Number(set.reps)) &&
+          Number(set.reps) > 0
+        );
+
+      if (olderComplete) {
+        const olderTotal = olderRequired.reduce(
+          (sum, set) => sum + Number(set.reps), 0
+        );
+
+        const currentTotal = reps.reduce(
+          (sum, value) => sum + value, 0
+        );
+
+        if (
+          olderTotal > 0 &&
+          currentTotal <= olderTotal * 0.8
+        ) {
+          return {
+            title: "Performance dip detected",
+            detail:
+              "Your recorded reps have dropped noticeably compared with the previous session. Keep the load steady, prioritise recovery and reassess next time."
+          };
+        }
+      }
+    }
+
+    if (belowMinimum) {
+      return {
+        title: "Consolidate your performance",
+        detail:
+          `Some sets fell below ${range.min} ${unit}. Keep the load steady or reduce it slightly if necessary to achieve controlled repetitions.`
+      };
+    }
+
+    if (allTop) {
+      if (timed) {
+        return {
+          title: "Target hold achieved",
+          detail:
+            "You've reached the top of your timed target on every set. Maintain good technique before progressing to a harder variation."
+        };
+      }
+
+      const load = median(weights);
+
+      if (load !== null) {
+        const increment = load < 20 ? 1 : 2.5;
+        const suggested = Math.ceil(
+          (load + increment) * 2
+        ) / 2;
+
+        return {
+          title: "Ready for progressive overload",
+          detail:
+            `You achieved ${range.max} ${unit} on every set. Consider ${suggested} kg next time if your technique and recovery are good.`,
+          suggestedWeight: suggested
+        };
+      }
+
+      return {
+        title: "Bodyweight progression achieved",
+        detail:
+          "You've reached the top of your target. Consider a slightly harder variation or a small amount of additional resistance when ready."
       };
     }
 
     return {
       title: "Build towards the top of the range",
-      detail: `Keep your current load and aim to add a rep or improve control, working towards ${range.max} ${unit}.`
+      detail:
+        `Keep your current working weight and aim to add repetitions towards ${range.max} ${unit}. Increase the load only when all sets reach the target.`
     };
   }
 
@@ -165,11 +306,16 @@
 
       validSets(record, index).forEach(set => {
         const weight = weightOf(set);
+
         if (weight === null) return;
 
         const reps = Number(set.reps);
-        if (!best || weight > best.weight ||
-          (weight === best.weight && reps > best.reps)) {
+
+        if (
+          !best ||
+          weight > best.weight ||
+          (weight === best.weight && reps > best.reps)
+        ) {
           best = {
             weight,
             reps,
@@ -185,6 +331,7 @@
 
   function allExercises() {
     const list = [];
+
     Object.keys(plan).forEach(name => {
       plan[name].items.forEach((item, index) => {
         list.push({
@@ -195,41 +342,55 @@
         });
       });
     });
+
     return list;
   }
 
   // ---------- STRENGTH TREND ----------
 
   function trendFor(name, index) {
-    return recordsFor(name, index).map(record => {
-      const sets = validSets(record, index);
-      const weights = sets.map(weightOf).filter(v => v !== null);
+    return recordsFor(name, index)
+      .map(record => {
+        const sets = validSets(record, index);
+        const weights = sets
+          .map(weightOf)
+          .filter(value => value !== null);
 
-      return {
-        date: record.date,
-        weight: weights.length ? Math.max(...weights) : 0,
-        reps: sets.length
-          ? Math.max(...sets.map(s => Number(s.reps))) : 0
-      };
-    }).slice(-8);
+        return {
+          date: record.date,
+          weight: weights.length
+            ? Math.max(...weights)
+            : 0,
+          reps: sets.length
+            ? Math.max(...sets.map(s => Number(s.reps)))
+            : 0
+        };
+      })
+      .slice(-8);
   }
 
   function trendChart(name, index) {
     const trend = trendFor(name, index);
+
     if (!trend.length) {
       return '<p class="muted small">Log this exercise to start building your strength chart.</p>';
     }
 
-    const max = Math.max(1, ...trend.map(p => p.weight));
+    const max = Math.max(1, ...trend.map(point => point.weight));
+
     return `
       <div class="il-chart">
         ${trend.map(point => {
           const height = point.weight
-            ? Math.max(8, point.weight / max * 100) : 5;
+            ? Math.max(8, point.weight / max * 100)
+            : 5;
+
           const date = point.date
-            ? new Date(point.date).toLocaleDateString(undefined, {
-                day: "numeric", month: "short"
-              }) : "Session";
+            ? new Date(point.date).toLocaleDateString(
+                undefined,
+                { day: "numeric", month: "short" }
+              )
+            : "Session";
 
           return `
             <div class="il-bar-wrap">
@@ -248,12 +409,16 @@
   function weeklyReport() {
     const now = new Date();
     const start = new Date(now);
+
     start.setHours(0, 0, 0, 0);
     start.setDate(start.getDate() - 6);
 
     const recent = db.history.filter(record => {
       const date = new Date(record.date);
-      return !isNaN(date) && date >= start && date <= now;
+
+      return !isNaN(date) &&
+        date >= start &&
+        date <= now;
     });
 
     let sets = 0;
@@ -263,10 +428,16 @@
       Object.values(record.entries || {}).forEach(rows => {
         (Array.isArray(rows) ? rows : []).forEach(set => {
           if (!set || set.reps === "") return;
+
           sets++;
+
           const weight = weightOf(set);
           const reps = Number(set.reps);
-          if (weight !== null && Number.isFinite(reps)) {
+
+          if (
+            weight !== null &&
+            Number.isFinite(reps)
+          ) {
             volume += weight * reps;
           }
         });
@@ -287,6 +458,7 @@
 
     const style = document.createElement("style");
     style.id = "il-coach-styles";
+
     style.textContent = `
       .il-coach-card {
         background:var(--panel);
@@ -376,30 +548,114 @@
         max-height:420px;
         overflow:auto;
       }
+      .il-adaptive-note {
+        margin-top:10px;
+        padding:12px;
+        border-radius:12px;
+        background:#17283a;
+        border:1px solid var(--line);
+        font-size:13px;
+      }
+      .il-adaptive-note strong {
+        color:var(--accent);
+      }
+      .il-adaptive-action {
+        display:block;
+        width:100%;
+        margin-top:10px;
+        font-size:12px;
+      }
     `;
+
     document.head.appendChild(style);
   }
 
-  // ---------- WORKOUT SCREEN COACHING ----------
+  // ---------- APPLY SUGGESTED WEIGHT ----------
+
+  function applySuggestedWeight(index, weight) {
+    if (!current || !draft[index]) return;
+
+    const rx = originalPrescription(current, index);
+
+    for (let i = 0; i < rx.sets; i++) {
+      if (!draft[index][i]) {
+        draft[index][i] = { weight: "", reps: "" };
+      }
+
+      if (draft[index][i].weight === "") {
+        draft[index][i].weight = String(weight);
+      }
+    }
+
+    renderExercises();
+    saveDraft();
+  }
+
+  // ---------- WORKOUT SCREEN ----------
 
   renderExercises = function () {
     originalRenderExercises();
 
-    document.querySelectorAll("#exerciseList > .card").forEach((card, index) => {
-      card.querySelectorAll(".smart-tip").forEach(el => el.remove());
+    const cards = document.querySelectorAll(
+      "#exerciseList > .card"
+    );
 
-      const tip = progression(current, index);
+    cards.forEach((card, index) => {
+      card.querySelectorAll(
+        ".smart-tip, .il-adaptive-note"
+      ).forEach(element => element.remove());
+
+      const rx = originalPrescription(current, index);
+      const advice = progression(current, index, rx);
+
       const note = document.createElement("div");
-      note.className = "notice small smart-tip";
-      note.style.marginTop = "9px";
-      note.innerHTML = `<strong>${esc(tip.title)}:</strong> ${esc(tip.detail)}`;
+      note.className = "il-adaptive-note";
 
-      const existing = card.querySelector(".notice");
-      if (existing) existing.insertAdjacentElement("afterend", note);
-      else card.insertBefore(note, card.children[1] || null);
+      let action = "";
+
+      if (
+        advice.suggestedWeight &&
+        !rx.deload
+      ) {
+        action = `
+          <button
+            type="button"
+            class="secondary il-adaptive-action"
+            data-apply-weight="${advice.suggestedWeight}"
+            data-apply-ex="${index}">
+            Use suggested ${advice.suggestedWeight} kg for empty sets
+          </button>`;
+      }
+
+      note.innerHTML = `
+        <strong>${esc(advice.title)}</strong>
+        <div style="margin-top:5px">${esc(advice.detail)}</div>
+        ${action}
+      `;
+
+      const previous = card.querySelector(".notice");
+
+      if (previous) {
+        previous.insertAdjacentElement("afterend", note);
+      } else {
+        card.appendChild(note);
+      }
     });
 
-    document.querySelectorAll("#exerciseList input").forEach(input => {
+    document.querySelectorAll(
+      "[data-apply-weight]"
+    ).forEach(button => {
+      button.onclick = () => {
+        applySuggestedWeight(
+          Number(button.dataset.applyEx),
+          Number(button.dataset.applyWeight)
+        );
+      };
+    });
+
+    document.querySelectorAll(
+      "#exerciseList input"
+    ).forEach(input => {
       input.addEventListener("input", saveDraft);
       input.addEventListener("change", saveDraft);
     });
@@ -414,33 +670,52 @@
       const resumeFirst = confirm(
         `You have an unfinished ${saved.name} workout. Press OK to resume it, or Cancel to start ${name} and replace that unfinished draft.`
       );
-      if (resumeFirst) name = saved.name;
-      else clearDraft();
+
+      if (resumeFirst) {
+        name = saved.name;
+      } else {
+        clearDraft();
+      }
     }
 
     originalOpenWorkout(name);
 
-    const recoverable = saved && saved.name === name ? saved : null;
+    const recoverable =
+      saved && saved.name === name
+        ? saved
+        : null;
 
     if (recoverable) {
       draft = recoverable.entries &&
         typeof recoverable.entries === "object"
-        ? recoverable.entries : {};
+          ? recoverable.entries
+          : {};
 
       plan[name].items.forEach((item, index) => {
-        const wanted = prescription(name, index).sets;
-        if (!Array.isArray(draft[index])) draft[index] = [];
+        const wanted = originalPrescription(name, index).sets;
+
+        if (!Array.isArray(draft[index])) {
+          draft[index] = [];
+        }
+
         while (draft[index].length < wanted) {
-          draft[index].push({ weight: "", reps: "" });
+          draft[index].push({
+            weight: "",
+            reps: ""
+          });
         }
       });
 
       renderExercises();
 
       const stamp = new Date(recoverable.savedAt)
-        .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        .toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
 
       const meta = document.getElementById("workoutMeta");
+
       if (meta) {
         meta.textContent =
           `${plan[name].focus} · unfinished workout restored (saved ${stamp})`;
@@ -453,7 +728,10 @@
   finish = function () {
     const hasEntries = Object.values(draft || {}).some(rows =>
       Array.isArray(rows) &&
-      rows.some(set => set && (set.weight !== "" || set.reps !== ""))
+      rows.some(set =>
+        set &&
+        (set.weight !== "" || set.reps !== "")
+      )
     );
 
     if (!hasEntries) {
@@ -470,10 +748,15 @@
     originalRenderHome();
 
     const saved = readDraft();
-    const hero = document.querySelector("#todayPage .hero");
+    const hero = document.querySelector(
+      "#todayPage .hero"
+    );
+
     if (!hero) return;
 
-    let resume = document.getElementById("resumeWorkout");
+    let resume = document.getElementById(
+      "resumeWorkout"
+    );
 
     if (saved) {
       if (!resume) {
@@ -485,9 +768,14 @@
       }
 
       const when = new Date(saved.savedAt)
-        .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        .toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
 
-      resume.textContent = `Resume ${saved.name} workout · saved ${when}`;
+      resume.textContent =
+        `Resume ${saved.name} workout · saved ${when}`;
+
       resume.onclick = () => openWorkout(saved.name);
     } else if (resume) {
       resume.remove();
@@ -505,12 +793,18 @@
 
     if (!historyCard) return;
 
-    let dashboard = document.getElementById("ilCoachDashboard");
+    let dashboard = document.getElementById(
+      "ilCoachDashboard"
+    );
 
     if (!dashboard) {
       dashboard = document.createElement("div");
       dashboard.id = "ilCoachDashboard";
-      historyCard.insertAdjacentElement("beforebegin", dashboard);
+
+      historyCard.insertAdjacentElement(
+        "beforebegin",
+        dashboard
+      );
     }
 
     const week = weeklyReport();
@@ -518,42 +812,64 @@
     const records = exercises.filter(item => item.pr);
 
     dashboard.className = "il-coach-card";
+
     dashboard.innerHTML = `
-      <div class="il-coach-heading">IRONLOG PROGRESS COACH</div>
+      <div class="il-coach-heading">
+        IRONLOG ADAPTIVE PROGRESS COACH
+      </div>
 
       <h3>Last 7 days</h3>
+
       <div class="il-coach-grid" style="margin:10px 0 16px">
         <div class="il-coach-stat">
-          <b>${week.sessions}</b><small>Sessions</small>
+          <b>${week.sessions}</b>
+          <small>Sessions</small>
         </div>
         <div class="il-coach-stat">
-          <b>${week.sets}</b><small>Sets logged</small>
+          <b>${week.sets}</b>
+          <small>Sets logged</small>
         </div>
         <div class="il-coach-stat">
-          <b>${week.volume.toLocaleString()}</b><small>Volume · kg</small>
+          <b>${week.volume.toLocaleString()}</b>
+          <small>Volume · kg</small>
         </div>
       </div>
 
-      <div class="il-coach-heading">Strength trend</div>
-      <label for="ilTrendSelect">Choose an exercise</label>
+      <div class="il-coach-heading">
+        Strength trend
+      </div>
+
+      <label for="ilTrendSelect">
+        Choose an exercise
+      </label>
+
       <select id="ilTrendSelect" class="il-select">
-        ${exercises.map((item, i) =>
-          `<option value="${i}">${esc(item.name)} · ${esc(item.exercise)}</option>`
-        ).join("")}
+        ${exercises.map((item, i) => `
+          <option value="${i}">
+            ${esc(item.name)} · ${esc(item.exercise)}
+          </option>
+        `).join("")}
       </select>
+
       <div id="ilTrendChart"></div>
 
       <div class="row" style="margin:18px 0 8px">
         <h3>Personal records</h3>
-        <span class="pill">${records.length} / ${exercises.length}</span>
+        <span class="pill">
+          ${records.length} / ${exercises.length}
+        </span>
       </div>
+
       <div class="il-pr-list">
         ${exercises.map(item => `
           <div class="il-pr-row">
             <div>
               <b>${esc(item.exercise)}</b>
-              <div class="muted small">${esc(item.name)}</div>
+              <div class="muted small">
+                ${esc(item.name)}
+              </div>
             </div>
+
             <div class="il-pr-value">
               ${item.pr
                 ? `${item.pr.weight} kg × ${item.pr.reps}`
@@ -562,16 +878,24 @@
           </div>
         `).join("")}
       </div>
+
       <p class="muted small" style="margin-top:10px">
-        Personal records use your recorded weights and reps. They do not replace good technique or safe training.
+        Progress recommendations are based on recorded performance.
+        Always prioritise good technique and safe training.
       </p>
     `;
 
-    const select = document.getElementById("ilTrendSelect");
-    const chart = document.getElementById("ilTrendChart");
+    const select = document.getElementById(
+      "ilTrendSelect"
+    );
+
+    const chart = document.getElementById(
+      "ilTrendChart"
+    );
 
     function updateChart() {
       const item = exercises[Number(select.value)];
+
       chart.innerHTML = item
         ? trendChart(item.name, item.index)
         : "";
@@ -588,16 +912,27 @@
 
   // ---------- STARTUP ----------
 
-  const finishButton = document.getElementById("finishWorkout");
-  if (finishButton) finishButton.onclick = finish;
+  const finishButton = document.getElementById(
+    "finishWorkout"
+  );
+
+  if (finishButton) {
+    finishButton.onclick = finish;
+  }
 
   window.addEventListener("pagehide", saveDraft);
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") saveDraft();
-  });
+  document.addEventListener(
+    "visibilitychange",
+    () => {
+      if (document.visibilityState === "hidden") {
+        saveDraft();
+      }
+    }
+  );
 
   renderHome();
 
-  console.log("IronLog Progress Coach v2 loaded.");
+  console.log("IronLog Adaptive Progress Coach v3 loaded.");
+
 })();
