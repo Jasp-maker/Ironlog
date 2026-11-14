@@ -1872,6 +1872,15 @@
     `;
 
     document.head.appendChild(style);
+
+     
+  // Refresh comparison whenever a workout set changes
+  document.addEventListener("input", function(event) {
+    if (event.target.matches("#exerciseList input[data-ex]")) {
+      updateSessionComparison();
+    }
+  });
+
   }
 
 
