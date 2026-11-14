@@ -1675,34 +1675,41 @@
   }
 
    
-  // ---------- LIVE SESSION COMPARISON v1 ----------
+  
+  // ---------- LIVE SESSION COMPARISON v2 ----------
 
   function comparisonPrevious(name, index) {
-    const today = dateKey(new Date());
+    const today = todayKey();
 
     const sessions = recordsFor(name, index)
-      .filter(record =>
-        record.dateKey !== today &&
-        Array.isArray(record.entries?.[index]) &&
-        record.entries[index].some(validSet)
-      );
+      .filter(record => {
+        const recordDate = new Date(record.date);
+
+        return !isNaN(recordDate) &&
+          recordDate.toDateString() !== today &&
+          Array.isArray(record.entries?.[index]) &&
+          record.entries[index].some(validSet);
+      });
 
     return sessions.length
       ? sessions[sessions.length - 1].entries[index]
       : null;
   }
 
-  function compareSet(previous, current) {
-    if (!previous || !current || !validSet(current)) {
-      return { label: "Enter set to compare", status: "waiting" };
+  function compareSet(previous, currentSet) {
+    if (!previous || !currentSet || !validSet(currentSet)) {
+      return {
+        label: "Enter set to compare",
+        status: "waiting"
+      };
     }
 
     const oldWeight = weightOf(previous);
-    const newWeight = weightOf(current);
+    const newWeight = weightOf(currentSet);
     const oldReps = Number(previous.reps);
-    const newReps = Number(current.reps);
+    const newReps = Number(currentSet.reps);
 
-    if (oldWeight > 0 && newWeight > 0) {
+    if (oldWeight !== null && newWeight !== null) {
       if (newWeight === oldWeight && newReps > oldReps) {
         return {
           label: `↑ ${newReps - oldReps} reps`,
@@ -1741,7 +1748,7 @@
       };
     }
 
-    if (oldWeight === 0 && newWeight === 0) {
+    if (oldWeight === null && newWeight === null) {
       if (newReps > oldReps) {
         return {
           label: `↑ ${newReps - oldReps}`,
@@ -1766,29 +1773,41 @@
   }
 
   function updateSessionComparison() {
-    const cards = document.querySelectorAll("#exerciseList > .card");
+    if (!current) return;
+
+    const cards = document.querySelectorAll(
+      "#exerciseList > .card"
+    );
 
     cards.forEach((card, index) => {
       const panel = card.querySelector(".il-comparison");
       if (!panel) return;
 
       const previous = comparisonPrevious(current, index);
-      const sets = draft?.[current]?.[index] || [];
+      const sets = draft?.[index] || [];
 
-      const rows = panel.querySelectorAll("[data-comparison-set]");
+      panel.querySelectorAll("[data-comparison-set]")
+        .forEach(row => {
+          const setIndex = Number(row.dataset.comparisonSet);
 
-      rows.forEach(row => {
-        const setIndex = Number(row.dataset.comparisonSet);
-        const result = compareSet(previous?.[setIndex], sets[setIndex]);
+          const result = compareSet(
+            previous?.[setIndex],
+            sets[setIndex]
+          );
 
-        row.textContent = result.label;
-        row.className = `il-comparison-result ${result.status}`;
-      });
+          row.textContent = result.label;
+          row.className =
+            `il-comparison-result ${result.status}`;
+        });
     });
   }
 
   function renderSessionComparison() {
-    const cards = document.querySelectorAll("#exerciseList > .card");
+    if (!current) return;
+
+    const cards = document.querySelectorAll(
+      "#exerciseList > .card"
+    );
 
     cards.forEach((card, index) => {
       const oldPanel = card.querySelector(".il-comparison");
@@ -1797,20 +1816,24 @@
       const previous = comparisonPrevious(current, index);
       if (!previous) return;
 
-      const sets = draft?.[current]?.[index] || [];
-
       const panel = document.createElement("div");
       panel.className = "il-comparison";
+
       panel.innerHTML = `
         <div class="il-comparison-heading">
           LAST SESSION COMPARISON
         </div>
+
         <div class="il-comparison-grid">
-          ${previous.map((set, setIndex) => `
+          ${previous.filter(validSet).map((set, setIndex) => `
             <div class="il-comparison-row">
               <span>Set ${setIndex + 1}</span>
-              <span>${Number(set.weight) || 0} kg × ${Number(set.reps) || 0}</span>
-              <span class="il-comparison-result waiting"
+              <span>
+                ${weightOf(set) === null ? "Bodyweight" : `${weightOf(set)} kg`}
+                × ${Number(set.reps)}
+              </span>
+              <span
+                class="il-comparison-result waiting"
                 data-comparison-set="${setIndex}">
                 Enter set to compare
               </span>
@@ -1820,8 +1843,12 @@
       `;
 
       const notice = card.querySelector(".notice");
-      if (notice) notice.after(panel);
-      else card.appendChild(panel);
+
+      if (notice) {
+        notice.after(panel);
+      } else {
+        card.appendChild(panel);
+      }
     });
 
     updateSessionComparison();
@@ -1832,56 +1859,71 @@
 
     const style = document.createElement("style");
     style.id = "il-comparison-styles";
+
     style.textContent = `
       .il-comparison {
+        display: block;
         margin-top: 12px;
-        padding: 12px;
+        padding: 13px;
         border-radius: 12px;
         background: #202630;
-        border: 1px solid #394452;
+        border: 1px solid #FF7926;
+        color: #F5F6F8;
       }
 
       .il-comparison-heading {
-        font-size: 10px;
-        font-weight: 800;
+        font-size: 11px;
+        font-weight: 900;
         letter-spacing: 1px;
-        color: #aeb8c5;
+        color: #FF9A50;
         margin-bottom: 9px;
       }
 
       .il-comparison-row {
         display: grid;
-        grid-template-columns: 48px 1fr 1fr;
+        grid-template-columns: 45px minmax(0,1fr) minmax(0,1fr);
         align-items: center;
         gap: 6px;
-        padding: 7px 0;
-        border-top: 1px solid #343e4b;
+        padding: 9px 0;
+        border-top: 1px solid #414A56;
         font-size: 11px;
       }
 
       .il-comparison-result {
         text-align: right;
-        font-weight: 800;
+        font-weight: 900;
       }
 
-      .il-comparison-result.up { color: #ff9d35; }
-      .il-comparison-result.match { color: #b8c2ce; }
-      .il-comparison-result.down { color: #ff6262; }
-      .il-comparison-result.different { color: #9da9b8; }
-      .il-comparison-result.waiting { color: #7f8b9b; }
+      .il-comparison-result.up {
+        color: #FF9A3D;
+      }
+
+      .il-comparison-result.match {
+        color: #C4CDD8;
+      }
+
+      .il-comparison-result.down {
+        color: #FF626F;
+      }
+
+      .il-comparison-result.different {
+        color: #AAB5C2;
+      }
+
+      .il-comparison-result.waiting {
+        color: #929EAC;
+      }
     `;
 
     document.head.appendChild(style);
 
-     
-  // Refresh comparison whenever a workout set changes
-  document.addEventListener("input", function(event) {
-    if (event.target.matches("#exerciseList input[data-ex]")) {
-      updateSessionComparison();
-    }
-  });
-
+    document.addEventListener("input", function(event) {
+      if (event.target.matches("#exerciseList input[data-ex]")) {
+        updateSessionComparison();
+      }
+    });
   }
+
 
 
   // ---------- WORKOUT SCREEN ----------
