@@ -420,7 +420,133 @@
       ],
       alternatives: ["Seated calf raise", "Single-leg dumbbell calf raise", "Leg press calf raise"],
       video: "standing calf raise proper form technique demonstration"
-    }
+    },
+ 
+    // =========================
+    // ABS DAY
+    // =========================
+
+    "Cable crunch": {
+      equipment: "Cable machine and rope attachment",
+      primary: "Rectus abdominis (six-pack muscles)",
+      secondary: "Obliques and deep core stabilisers",
+      setup: "Attach a rope to a high pulley. Kneel facing the machine, hold the rope beside your head and keep your hips stable.",
+      steps: [
+        "Start upright with your spine neutral.",
+        "Brace your abdomen before moving.",
+        "Curl your ribcage down towards your pelvis.",
+        "Focus on contracting your abdominal muscles rather than pulling with your arms.",
+        "Pause briefly at the bottom.",
+        "Return slowly without allowing the weight to pull you upright."
+      ],
+      mistakes: [
+        "Pulling the rope down using your arms.",
+        "Sitting back towards your heels.",
+        "Moving only through your hips.",
+        "Using excessive weight and shortening the movement.",
+        "Allowing the weight stack to pull you back too quickly."
+      ],
+      alternatives: ["Weighted crunch", "Decline sit-up", "Abdominal crunch machine"],
+      video: "kneeling cable crunch proper form demonstration"
+    },
+
+    "Hanging knee raise": {
+      equipment: "Pull-up bar or captain's chair",
+      primary: "Rectus abdominis",
+      secondary: "Hip flexors and obliques",
+      setup: "Hang from a secure pull-up bar using a comfortable grip, or position yourself in a captain's chair with your back supported.",
+      steps: [
+        "Start with your body controlled and legs hanging.",
+        "Brace your core and avoid swinging.",
+        "Raise your knees towards your chest.",
+        "Gently curl your pelvis upwards at the top.",
+        "Lower your legs slowly.",
+        "Reset your body before the next repetition."
+      ],
+      mistakes: [
+        "Swinging your body to generate momentum.",
+        "Raising your knees without controlling the movement.",
+        "Dropping your legs too quickly.",
+        "Using momentum instead of abdominal strength.",
+        "Allowing your shoulders to become uncomfortable."
+      ],
+      alternatives: ["Captain's chair knee raise", "Lying reverse crunch", "Bent-knee leg raise"],
+      video: "hanging knee raise proper technique demonstration"
+    },
+
+    "Ab wheel": {
+      equipment: "Ab wheel roller and exercise mat",
+      primary: "Rectus abdominis",
+      secondary: "Obliques, lats, shoulders and deep core muscles",
+      setup: "Kneel on a mat with the wheel beneath your shoulders. Grip both handles and brace your abdomen before rolling forwards.",
+      steps: [
+        "Begin on your knees with your hips slightly tucked.",
+        "Brace your core and squeeze your glutes.",
+        "Slowly roll the wheel forwards.",
+        "Keep your ribs down and avoid allowing your lower back to sag.",
+        "Roll only as far as you can maintain control.",
+        "Pull the wheel back towards your knees using your core."
+      ],
+      mistakes: [
+        "Allowing your lower back to arch.",
+        "Dropping your hips towards the floor.",
+        "Rolling further than your core strength allows.",
+        "Using your arms without controlling your torso.",
+        "Rushing the return movement."
+      ],
+      alternatives: ["Stability ball rollout", "Kneeling barbell rollout", "Plank"],
+      video: "kneeling ab wheel rollout correct form demonstration"
+    },
+
+    "Pallof press": {
+      equipment: "Cable machine or resistance band",
+      primary: "Obliques",
+      secondary: "Transverse abdominis, rectus abdominis and glutes",
+      setup: "Set a cable handle around chest height. Stand side-on to the machine, hold the handle against your chest and take a stable stance.",
+      steps: [
+        "Stand with feet shoulder-width apart.",
+        "Brace your abdomen and keep your hips facing forwards.",
+        "Press your hands straight out in front of your chest.",
+        "Resist the cable pulling your torso towards the machine.",
+        "Pause briefly with your arms extended.",
+        "Bring your hands slowly back to your chest.",
+        "Complete your repetitions and switch sides."
+      ],
+      mistakes: [
+        "Allowing your torso to rotate towards the machine.",
+        "Leaning sideways to resist the cable.",
+        "Using too much weight.",
+        "Moving your hips instead of keeping them stable.",
+        "Holding your breath throughout the repetition."
+      ],
+      alternatives: ["Resistance band Pallof press", "Half-kneeling Pallof press", "Cable anti-rotation hold"],
+      video: "Pallof press correct form technique demonstration"
+    },
+
+    "Plank": {
+      equipment: "Exercise mat",
+      primary: "Transverse abdominis and rectus abdominis",
+      secondary: "Obliques, glutes, shoulders and spinal stabilisers",
+      setup: "Position your forearms on the mat with elbows beneath your shoulders. Extend your legs behind you and support your body on your forearms and toes.",
+      steps: [
+        "Keep your body in a straight line from head to heels.",
+        "Brace your abdomen as if preparing for a gentle impact.",
+        "Squeeze your glutes and keep your hips level.",
+        "Keep your neck neutral and look towards the floor.",
+        "Breathe steadily while maintaining the position.",
+        "Finish the hold when you can no longer maintain good technique."
+      ],
+      mistakes: [
+        "Allowing your hips to sag towards the floor.",
+        "Raising your hips too high.",
+        "Holding your breath.",
+        "Allowing your lower back to arch.",
+        "Continuing after your technique has broken down."
+      ],
+      alternatives: ["Kneeling plank", "High plank", "Dead bug"],
+      video: "forearm plank correct form technique demonstration"
+    },
+
   };
 
   // =========================
@@ -617,6 +743,6 @@
     });
   };
 
-  console.log("IronLog Exercise Library: Push + Pull + Legs Day guides loaded.");
+console.log("IronLog Exercise Library: All four workout day guides loaded.");
 
 })();
