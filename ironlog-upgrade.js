@@ -1891,8 +1891,6 @@
     addPremiumStyles();
 
     originalRenderExercises();
-     addComparisonStyles();
-renderSessionComparison();
 
     const cards = document.querySelectorAll(
       "#exerciseList > .card"
