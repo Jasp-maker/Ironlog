@@ -1,6 +1,6 @@
 
 /* IRONLOG - Exercise Library
-   Stage 3: Push + Pull Day guides
+   Stage 4: Push + Pull + Legs Day guides
    Works alongside ironlog-upgrade.js
 */
 
@@ -272,6 +272,154 @@
       ],
       alternatives: ["Rope hammer curl", "Cross-body dumbbell hammer curl"],
       video: "dumbbell hammer curl proper form demonstration"
+    },
+
+    // =========================
+    // LEG DAY
+    // =========================
+
+    "Squat": {
+      equipment: "Squat rack and barbell",
+      primary: "Quadriceps",
+      secondary: "Glutes, hamstrings, adductors and core",
+      setup: "Position the bar securely across your upper back. Stand with feet approximately shoulder-width apart and toes turned slightly out. Brace your abdomen before beginning.",
+      steps: [
+        "Take a controlled breath and brace your core.",
+        "Unlock your hips and knees together.",
+        "Lower yourself between your legs while keeping your feet planted.",
+        "Descend as far as you can comfortably maintain control and a stable spine.",
+        "Drive through your feet and stand upright.",
+        "Reset your brace before the next repetition."
+      ],
+      mistakes: [
+        "Allowing your heels to lift off the floor.",
+        "Letting your knees collapse inwards.",
+        "Rounding your lower back at the bottom.",
+        "Dropping too quickly without control.",
+        "Using more weight than you can safely manage."
+      ],
+      alternatives: ["Leg press", "Goblet squat", "Hack squat machine"],
+      video: "barbell back squat proper form technique demonstration"
+    },
+
+    "Romanian deadlift": {
+      equipment: "Barbell or dumbbells",
+      primary: "Hamstrings",
+      secondary: "Glutes, spinal erectors and upper back",
+      setup: "Stand with feet hip-width apart holding the bar in front of your thighs. Keep a slight bend in your knees and brace your core.",
+      steps: [
+        "Push your hips backwards while keeping the bar close to your legs.",
+        "Allow your torso to lean forwards as your hips travel back.",
+        "Keep your back neutral and knees softly bent.",
+        "Lower until you feel a strong hamstring stretch without losing your position.",
+        "Drive your hips forwards to return to standing.",
+        "Finish tall without leaning backwards."
+      ],
+      mistakes: [
+        "Bending the knees too much and turning it into a squat.",
+        "Rounding your lower back.",
+        "Allowing the bar to drift away from your legs.",
+        "Lowering further than your mobility allows.",
+        "Hyperextending your back at the top."
+      ],
+      alternatives: ["Dumbbell Romanian deadlift", "Cable pull-through", "45-degree hip extension"],
+      video: "Romanian deadlift proper form technique demonstration"
+    },
+
+    "Leg press": {
+      equipment: "Leg press machine",
+      primary: "Quadriceps",
+      secondary: "Glutes, hamstrings and adductors",
+      setup: "Sit securely against the backrest. Place your feet approximately shoulder-width apart on the platform. Adjust the seat so your knees can bend comfortably.",
+      steps: [
+        "Release the safety handles carefully.",
+        "Lower the platform slowly by bending your knees.",
+        "Keep your entire foot in contact with the platform.",
+        "Stop before your lower back or hips begin to curl away from the seat.",
+        "Push through your feet to extend your legs.",
+        "Avoid aggressively locking your knees."
+      ],
+      mistakes: [
+        "Lowering the platform so far that your lower back rounds.",
+        "Allowing your knees to collapse inwards.",
+        "Bouncing out of the bottom position.",
+        "Lifting your heels from the platform.",
+        "Slamming your knees into lockout."
+      ],
+      alternatives: ["Goblet squat", "Hack squat machine", "Smith machine squat"],
+      video: "leg press machine correct form demonstration"
+    },
+
+    "Seated leg curl": {
+      equipment: "Seated leg curl machine",
+      primary: "Hamstrings",
+      secondary: "Calves (gastrocnemius)",
+      setup: "Adjust the seat and backrest so your knees line up with the machine pivot. Position the lower pad just above your heels and secure the thigh pad comfortably.",
+      steps: [
+        "Sit back against the support and grip the handles.",
+        "Start with your legs extended comfortably.",
+        "Curl your heels down and backwards beneath the seat.",
+        "Squeeze your hamstrings briefly at the bottom.",
+        "Return slowly until your legs are extended again.",
+        "Keep the weight under control throughout."
+      ],
+      mistakes: [
+        "Using momentum to pull the weight down.",
+        "Lifting your hips off the seat.",
+        "Setting the machine pivot incorrectly.",
+        "Allowing the weight stack to crash.",
+        "Using a range of motion that causes knee discomfort."
+      ],
+      alternatives: ["Lying leg curl", "Single-leg seated curl", "Resistance band leg curl"],
+      video: "seated leg curl machine proper technique demonstration"
+    },
+
+    "Leg extension": {
+      equipment: "Leg extension machine",
+      primary: "Quadriceps",
+      secondary: "Hip flexors and supporting knee stabilisers",
+      setup: "Adjust the seat so your knees line up with the machine pivot. Position the roller just above your ankles and hold the handles.",
+      steps: [
+        "Sit with your back supported and feet relaxed.",
+        "Extend your knees to raise the padded bar.",
+        "Lift smoothly until your legs are comfortably extended.",
+        "Squeeze your quadriceps briefly at the top.",
+        "Lower the weight slowly to the starting position.",
+        "Maintain control rather than letting the stack drop."
+      ],
+      mistakes: [
+        "Using excessive weight.",
+        "Swinging your legs to move the pad.",
+        "Lifting your hips away from the seat.",
+        "Dropping the weight too quickly.",
+        "Forcing a painful range of motion."
+      ],
+      alternatives: ["Spanish squat", "Goblet squat", "Reverse Nordic curl"],
+      video: "leg extension machine correct form demonstration"
+    },
+
+    "Standing calf raise": {
+      equipment: "Standing calf raise machine or dumbbells",
+      primary: "Gastrocnemius (calf muscle)",
+      secondary: "Soleus and foot stabilisers",
+      setup: "Position the balls of your feet on the platform with your heels free to move. Rest the shoulder pads comfortably and stand tall.",
+      steps: [
+        "Start with your heels lowered into a comfortable stretch.",
+        "Keep your knees mostly straight but not forcefully locked.",
+        "Push through the balls of your feet to raise your heels.",
+        "Pause briefly and squeeze your calves at the top.",
+        "Lower slowly back into the stretched position.",
+        "Use a controlled full range of motion."
+      ],
+      mistakes: [
+        "Bouncing at the bottom of each repetition.",
+        "Using momentum instead of calf strength.",
+        "Performing only very short repetitions.",
+        "Bending your knees excessively.",
+        "Using so much weight that you cannot control the movement."
+      ],
+      alternatives: ["Seated calf raise", "Single-leg dumbbell calf raise", "Leg press calf raise"],
+      video: "standing calf raise proper form technique demonstration"
     }
   };
 
@@ -469,6 +617,6 @@
     });
   };
 
-  console.log("IronLog Exercise Library: Push + Pull Day guides loaded.");
+  console.log("IronLog Exercise Library: Push + Pull + Legs Day guides loaded.");
 
 })();
