@@ -1674,6 +1674,207 @@
     saveDraft();
   }
 
+   
+  // ---------- LIVE SESSION COMPARISON v1 ----------
+
+  function comparisonPrevious(name, index) {
+    const today = dateKey(new Date());
+
+    const sessions = recordsFor(name, index)
+      .filter(record =>
+        record.dateKey !== today &&
+        Array.isArray(record.entries?.[index]) &&
+        record.entries[index].some(validSet)
+      );
+
+    return sessions.length
+      ? sessions[sessions.length - 1].entries[index]
+      : null;
+  }
+
+  function compareSet(previous, current) {
+    if (!previous || !current || !validSet(current)) {
+      return { label: "Enter set to compare", status: "waiting" };
+    }
+
+    const oldWeight = weightOf(previous);
+    const newWeight = weightOf(current);
+    const oldReps = Number(previous.reps);
+    const newReps = Number(current.reps);
+
+    if (oldWeight > 0 && newWeight > 0) {
+      if (newWeight === oldWeight && newReps > oldReps) {
+        return {
+          label: `↑ ${newReps - oldReps} reps`,
+          status: "up"
+        };
+      }
+
+      if (newWeight > oldWeight && newReps === oldReps) {
+        return {
+          label: `↑ ${newWeight - oldWeight} kg`,
+          status: "up"
+        };
+      }
+
+      if (newWeight === oldWeight && newReps === oldReps) {
+        return { label: "Matched", status: "match" };
+      }
+
+      if (newWeight === oldWeight && newReps < oldReps) {
+        return {
+          label: `↓ ${oldReps - newReps} reps`,
+          status: "down"
+        };
+      }
+
+      if (newWeight < oldWeight && newReps === oldReps) {
+        return {
+          label: `↓ ${oldWeight - newWeight} kg`,
+          status: "down"
+        };
+      }
+
+      return {
+        label: "Different load / reps",
+        status: "different"
+      };
+    }
+
+    if (oldWeight === 0 && newWeight === 0) {
+      if (newReps > oldReps) {
+        return {
+          label: `↑ ${newReps - oldReps}`,
+          status: "up"
+        };
+      }
+
+      if (newReps < oldReps) {
+        return {
+          label: `↓ ${oldReps - newReps}`,
+          status: "down"
+        };
+      }
+
+      return { label: "Matched", status: "match" };
+    }
+
+    return {
+      label: "Different equipment / load",
+      status: "different"
+    };
+  }
+
+  function updateSessionComparison() {
+    const cards = document.querySelectorAll("#exerciseList > .card");
+
+    cards.forEach((card, index) => {
+      const panel = card.querySelector(".il-comparison");
+      if (!panel) return;
+
+      const previous = comparisonPrevious(current, index);
+      const sets = draft?.[current]?.[index] || [];
+
+      const rows = panel.querySelectorAll("[data-comparison-set]");
+
+      rows.forEach(row => {
+        const setIndex = Number(row.dataset.comparisonSet);
+        const result = compareSet(previous?.[setIndex], sets[setIndex]);
+
+        row.textContent = result.label;
+        row.className = `il-comparison-result ${result.status}`;
+      });
+    });
+  }
+
+  function renderSessionComparison() {
+    const cards = document.querySelectorAll("#exerciseList > .card");
+
+    cards.forEach((card, index) => {
+      const oldPanel = card.querySelector(".il-comparison");
+      if (oldPanel) oldPanel.remove();
+
+      const previous = comparisonPrevious(current, index);
+      if (!previous) return;
+
+      const sets = draft?.[current]?.[index] || [];
+
+      const panel = document.createElement("div");
+      panel.className = "il-comparison";
+      panel.innerHTML = `
+        <div class="il-comparison-heading">
+          LAST SESSION COMPARISON
+        </div>
+        <div class="il-comparison-grid">
+          ${previous.map((set, setIndex) => `
+            <div class="il-comparison-row">
+              <span>Set ${setIndex + 1}</span>
+              <span>${Number(set.weight) || 0} kg × ${Number(set.reps) || 0}</span>
+              <span class="il-comparison-result waiting"
+                data-comparison-set="${setIndex}">
+                Enter set to compare
+              </span>
+            </div>
+          `).join("")}
+        </div>
+      `;
+
+      const notice = card.querySelector(".notice");
+      if (notice) notice.after(panel);
+      else card.appendChild(panel);
+    });
+
+    updateSessionComparison();
+  }
+
+  function addComparisonStyles() {
+    if (document.getElementById("il-comparison-styles")) return;
+
+    const style = document.createElement("style");
+    style.id = "il-comparison-styles";
+    style.textContent = `
+      .il-comparison {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        background: #202630;
+        border: 1px solid #394452;
+      }
+
+      .il-comparison-heading {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 1px;
+        color: #aeb8c5;
+        margin-bottom: 9px;
+      }
+
+      .il-comparison-row {
+        display: grid;
+        grid-template-columns: 48px 1fr 1fr;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 0;
+        border-top: 1px solid #343e4b;
+        font-size: 11px;
+      }
+
+      .il-comparison-result {
+        text-align: right;
+        font-weight: 800;
+      }
+
+      .il-comparison-result.up { color: #ff9d35; }
+      .il-comparison-result.match { color: #b8c2ce; }
+      .il-comparison-result.down { color: #ff6262; }
+      .il-comparison-result.different { color: #9da9b8; }
+      .il-comparison-result.waiting { color: #7f8b9b; }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+
   // ---------- WORKOUT SCREEN ----------
 
   window.renderExercises = function () {
@@ -1681,6 +1882,8 @@
     addPremiumStyles();
 
     originalRenderExercises();
+     addComparisonStyles();
+renderSessionComparison();
 
     const cards = document.querySelectorAll(
       "#exerciseList > .card"
