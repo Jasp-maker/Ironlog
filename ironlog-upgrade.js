@@ -1,5 +1,4 @@
-
-/* IRONLOG INTELLIGENT TRAINING COACH v7
+/* IRONLOG INTELLIGENT TRAINING COACH v8
    Premium charcoal / orange / red styling
    Adaptive rep targets
    Intelligent weight recommendations
@@ -10,6 +9,7 @@
    Personal records
    Interactive line and dot strength trends
    Workout draft recovery
+   Live session comparison
 
    Preserves:
    ironlog_v1
@@ -19,7 +19,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "v7";
+  const VERSION = "v8";
   const DRAFT_KEY = "ironlog_draft_v1";
 
   const originalOpenWorkout = window.openWorkout;
@@ -37,7 +37,7 @@
     typeof originalRenderProgress !== "function" ||
     typeof originalPrescription !== "function"
   ) {
-    console.error("IronLog v7 could not find all original app functions.");
+    console.error("IronLog v8 could not find all original app functions.");
     return;
   }
 
@@ -1512,8 +1512,6 @@
         color: #B2B8C2 !important;
       }
 
-      /* Distinct bottom navigation tabs */
-
       nav,
       .bottom-nav,
       #bottomNav,
@@ -1572,8 +1570,6 @@
         transform: scale(.97);
       }
 
-      /* Coaching cards */
-
       .il-coach-card {
         background: #191D23 !important;
         border-color: #3A414B !important;
@@ -1627,8 +1623,6 @@
         border-color: #353C46 !important;
       }
 
-      /* Existing strength graph deliberately preserved */
-
       .il-line-chart {
         background: #202126;
         border-color: #383940;
@@ -1674,9 +1668,7 @@
     saveDraft();
   }
 
-   
-  
-  // ---------- LIVE SESSION COMPARISON v2 ----------
+  // ---------- LIVE SESSION COMPARISON ----------
 
   function comparisonPrevious(name, index) {
     const today = todayKey();
@@ -1924,8 +1916,6 @@
     });
   }
 
-
-
   // ---------- WORKOUT SCREEN ----------
 
   window.renderExercises = function () {
@@ -1933,6 +1923,9 @@
     addPremiumStyles();
 
     originalRenderExercises();
+
+    // NEW: Install comparison styling when workout cards render.
+    addComparisonStyles();
 
     const cards = document.querySelectorAll(
       "#exerciseList > .card"
@@ -1994,6 +1987,9 @@
         card.appendChild(note);
       }
     });
+
+    // NEW: Actually render the live comparison panels.
+    renderSessionComparison();
 
     document.querySelectorAll(
       "[data-apply-weight]"
@@ -2326,6 +2322,6 @@
   renderHome();
 
   console.log(
-    "IronLog Intelligent Training Coach v7 loaded."
+    "IronLog Intelligent Training Coach v8 loaded."
   );
 })();
