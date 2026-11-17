@@ -2100,6 +2100,7 @@
     renderHome();
   };
 
+  
   window.renderHome = function () {
     addStyles();
     addPremiumStyles();
@@ -2108,28 +2109,362 @@
 
     const saved = readDraft();
 
-    const hero = document.querySelector(
-      "#todayPage .hero"
+    const hero = document.querySelector("#todayPage .hero");
+    const page = document.querySelector("#todayPage");
+    const anchor = hero || page;
+
+    if (!anchor) return;
+
+    // ---------- V11 COMMAND CENTRE STYLES ----------
+    if (!document.getElementById("il-v11-home-styles")) {
+      const style = document.createElement("style");
+      style.id = "il-v11-home-styles";
+      style.textContent = `
+        #ilHomeCommandCentre {
+          margin: 16px 0;
+          padding: 16px;
+          border-radius: 18px;
+          background: linear-gradient(145deg,#202329,#15171b);
+          border: 1px solid #383d45;
+          color: #f4f5f7;
+          box-shadow: 0 8px 24px rgba(0,0,0,.22);
+        }
+        #ilHomeCommandCentre .il-v11-kicker {
+          color: #ff8738;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 1.8px;
+          margin-bottom: 12px;
+        }
+        #ilHomeCommandCentre .il-v11-focus {
+          padding: 15px;
+          border-radius: 14px;
+          background: linear-gradient(120deg,#34251f,#242126);
+          border: 1px solid #75432d;
+          margin-bottom: 13px;
+        }
+        #ilHomeCommandCentre .il-v11-label {
+          color: #ff9a55;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 1.1px;
+          text-transform: uppercase;
+        }
+        #ilHomeCommandCentre .il-v11-workout {
+          font-size: 23px;
+          font-weight: 900;
+          margin: 5px 0 3px;
+        }
+        #ilHomeCommandCentre .il-v11-muted {
+          color: #aeb4bd;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+        #ilHomeCommandCentre .il-v11-start {
+          width: 100%;
+          margin-top: 13px;
+          padding: 12px;
+          border: 0;
+          border-radius: 10px;
+          background: linear-gradient(90deg,#ff762e,#ed493e);
+          color: #fff;
+          font-weight: 900;
+          font-size: 13px;
+        }
+        #ilHomeCommandCentre .il-v11-stats {
+          display: grid;
+          grid-template-columns: repeat(3,minmax(0,1fr));
+          gap: 8px;
+          margin: 12px 0;
+        }
+        #ilHomeCommandCentre .il-v11-stat {
+          padding: 12px 7px;
+          border-radius: 11px;
+          background: #292d34;
+          text-align: center;
+          min-width: 0;
+        }
+        #ilHomeCommandCentre .il-v11-number {
+          font-size: 21px;
+          font-weight: 900;
+          color: #ff9148;
+        }
+        #ilHomeCommandCentre .il-v11-stat-label {
+          color: #aeb4bd;
+          font-size: 10px;
+          margin-top: 3px;
+        }
+        #ilHomeCommandCentre .il-v11-section {
+          padding: 12px 0;
+          border-top: 1px solid #383d45;
+        }
+        #ilHomeCommandCentre .il-v11-section-title {
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: .7px;
+          text-transform: uppercase;
+          margin-bottom: 6px;
+          color: #ff9148;
+        }
+        #ilHomeCommandCentre .il-v11-message {
+          font-size: 13px;
+          line-height: 1.5;
+          color: #e1e4e8;
+        }
+        #ilHomeCommandCentre .il-v11-resume {
+          margin-top: 10px;
+          padding-top: 12px;
+          border-top: 1px solid #383d45;
+        }
+        #ilHomeCommandCentre #resumeWorkout {
+          width: 100%;
+          margin-top: 8px !important;
+          padding: 12px;
+          border-radius: 10px;
+          font-weight: 800;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Remove previous dashboard before rebuilding it.
+    const oldDashboard = document.getElementById(
+      "ilHomeCommandCentre"
+    );
+    if (oldDashboard) oldDashboard.remove();
+
+    // ---------- TODAY'S WORKOUT ----------
+    const dayNames = [
+      "Sunday", "Monday", "Tuesday", "Wednesday",
+      "Thursday", "Friday", "Saturday"
+    ];
+
+    const today = new Date();
+    const todayName = dayNames[today.getDay()];
+
+    let nextName = null;
+    let nextOffset = 8;
+
+    Object.keys(plan).forEach(name => {
+      const workoutDay = plan[name].day;
+      const dayIndex = dayNames.indexOf(workoutDay);
+
+      if (dayIndex === -1) return;
+
+      const offset = (dayIndex - today.getDay() + 7) % 7;
+
+      if (offset < nextOffset) {
+        nextOffset = offset;
+        nextName = name;
+      }
+    });
+
+    if (!nextName) return;
+
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + nextOffset);
+
+    const dateLabel = nextOffset === 0
+      ? "Today"
+      : nextDate.toLocaleDateString([], {
+          weekday: "long",
+          day: "numeric",
+          month: "short"
+        });
+
+    const focusLabel = nextOffset === 0
+      ? "TODAY'S TRAINING FOCUS"
+      : "NEXT SCHEDULED WORKOUT";
+
+    // ---------- WEEKLY PROGRESS ----------
+    let report = {
+      sessions: 0,
+      sets: 0,
+      volume: 0,
+      score: 0
+    };
+
+    try {
+      report = weeklyReport() || report;
+    } catch (error) {
+      console.warn("IronLog weekly report unavailable", error);
+    }
+
+    const sessions = Number(report.sessions) || 0;
+    const sets = Number(report.sets) || 0;
+    const weeklyPercent = Math.min(100, Math.round(
+      sessions / 4 * 100
+    ));
+
+    // ---------- PROGRESSION COACH MESSAGE ----------
+    let coachMessage =
+      "Keep logging your sessions. The more comparable workouts you record, the smarter your IronLog coaching becomes.";
+
+    let progressing = 0;
+    let attention = 0;
+    let exerciseCount = 0;
+
+    try {
+      const exercises = allExercises();
+
+      exercises.forEach(item => {
+        const data = progressionOverviewData(
+          item.name,
+          item.index
+        );
+
+        if (!data) return;
+
+        exerciseCount++;
+
+        if (data.status === "up") progressing++;
+        if (data.status === "attention") attention++;
+      });
+
+      if (sessions === 0) {
+        coachMessage =
+          "Your week is ready to begin. Log your planned sessions and IronLog will start building your personal performance baseline.";
+      } else if (attention > 0) {
+        coachMessage =
+          `${attention} exercise${attention === 1 ? "" : "s"} show a recent performance dip. Prioritise recovery, good technique and consistent effort before pushing the weight up.`;
+      } else if (progressing > 0) {
+        coachMessage =
+          `${progressing} exercise${progressing === 1 ? "" : "s"} show measurable progress. Great work! Keep building reps within your target range before increasing the load.`;
+      } else {
+        coachMessage =
+          "Consistency is the priority. Keep your technique controlled and record your sets so IronLog can identify your next progression opportunities.";
+      }
+    } catch (error) {
+      console.warn("IronLog coaching summary unavailable", error);
+    }
+
+    // ---------- LATEST RECORDED PERSONAL BEST ----------
+    let latestPR = null;
+
+    try {
+      allExercises().forEach(item => {
+        const pr = personalRecord(item.name, item.index);
+
+        if (!pr || !pr.weight) return;
+
+        const timestamp = pr.date
+          ? new Date(pr.date).getTime()
+          : 0;
+
+        if (!latestPR || timestamp > latestPR.timestamp) {
+          latestPR = {
+            name: item.name,
+            weight: pr.weight,
+            reps: pr.reps,
+            date: pr.date,
+            timestamp
+          };
+        }
+      });
+    } catch (error) {
+      console.warn("IronLog personal best unavailable", error);
+    }
+
+    let achievementText = "Your personal bests will appear here as you record your training.";
+
+    if (latestPR) {
+      achievementText =
+        `${esc(latestPR.name)} · ${esc(latestPR.weight)} kg × ${esc(latestPR.reps)}`;
+
+      if (latestPR.date) {
+        const prDate = new Date(latestPR.date);
+
+        if (!isNaN(prDate.getTime())) {
+          achievementText +=
+            ` · ${prDate.toLocaleDateString([], {
+              day: "numeric",
+              month: "short",
+              year: "numeric"
+            })}`;
+        }
+      }
+    }
+
+    // ---------- BUILD COMMAND CENTRE ----------
+    const dashboard = document.createElement("section");
+    dashboard.id = "ilHomeCommandCentre";
+
+    dashboard.innerHTML = `
+      <div class="il-v11-kicker">IRONLOG · COMMAND CENTRE</div>
+
+      <div class="il-v11-focus">
+        <div class="il-v11-label">${focusLabel}</div>
+        <div class="il-v11-workout">${esc(nextName)}</div>
+        <div class="il-v11-muted">
+          ${esc(plan[nextName].focus)}<br>
+          ${esc(dateLabel)} · ${esc(plan[nextName].day)}
+        </div>
+        <button class="il-v11-start" id="ilV11StartWorkout">
+          ${nextOffset === 0 ? "START TODAY'S WORKOUT" : "VIEW NEXT WORKOUT"}
+        </button>
+      </div>
+
+      <div class="il-v11-label">YOUR WEEK AT A GLANCE</div>
+      <div class="il-v11-stats">
+        <div class="il-v11-stat">
+          <div class="il-v11-number">${sessions}</div>
+          <div class="il-v11-stat-label">Sessions / 4</div>
+        </div>
+        <div class="il-v11-stat">
+          <div class="il-v11-number">${sets}</div>
+          <div class="il-v11-stat-label">Sets logged</div>
+        </div>
+        <div class="il-v11-stat">
+          <div class="il-v11-number">${weeklyPercent}%</div>
+          <div class="il-v11-stat-label">Weekly target</div>
+        </div>
+      </div>
+
+      <div style="height:6px;background:#383d45;border-radius:8px;overflow:hidden;margin-bottom:14px;">
+        <div style="height:100%;width:${weeklyPercent}%;background:linear-gradient(90deg,#ff762e,#ed493e);border-radius:8px;"></div>
+      </div>
+
+      <div class="il-v11-section">
+        <div class="il-v11-section-title">IRONLOG COACH</div>
+        <div class="il-v11-message">${coachMessage}</div>
+      </div>
+
+      <div class="il-v11-section">
+        <div class="il-v11-section-title">LATEST RECORDED PERSONAL BEST</div>
+        <div class="il-v11-message">${achievementText}</div>
+      </div>
+
+      <div class="il-v11-resume" id="ilV11ResumeWrap" style="display:none;">
+        <div class="il-v11-section-title">WORKOUT IN PROGRESS</div>
+        <div class="il-v11-muted">Pick up where you left off.</div>
+      </div>
+    `;
+
+    if (hero) {
+      hero.insertAdjacentElement("afterend", dashboard);
+    } else {
+      anchor.insertBefore(dashboard, anchor.firstChild);
+    }
+
+    const startButton = document.getElementById(
+      "ilV11StartWorkout"
     );
 
-    if (!hero) return;
+    if (startButton) {
+      startButton.onclick = () => openWorkout(nextName);
+    }
 
-    let resume = document.getElementById(
-      "resumeWorkout"
-    );
+    // ---------- PRESERVE EXISTING RESUME BUTTON ----------
+    let resume = document.getElementById("resumeWorkout");
 
     if (saved) {
       if (!resume) {
         resume = document.createElement("button");
         resume.id = "resumeWorkout";
         resume.className = "secondary";
-        resume.style.marginTop = "10px";
-        hero.appendChild(resume);
       }
 
-      const when = new Date(
-        saved.savedAt
-      ).toLocaleTimeString([], {
+      const when = new Date(saved.savedAt).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
       });
@@ -2138,10 +2473,20 @@
         `Resume ${saved.name} workout · saved ${when}`;
 
       resume.onclick = () => openWorkout(saved.name);
+
+      const resumeWrap = document.getElementById(
+        "ilV11ResumeWrap"
+      );
+
+      if (resumeWrap) {
+        resumeWrap.style.display = "block";
+        resumeWrap.appendChild(resume);
+      }
     } else if (resume) {
       resume.remove();
     }
   };
+
 
   // ---------- V9 EXERCISE PROGRESSION DATA ----------
 
