@@ -2295,6 +2295,363 @@
     renderCoachDashboard();
   };
 
+  // ---------- V9 EXERCISE PROGRESSION OVERVIEW ----------
+
+  function progressionMetric(record, index, count) {
+    const rows = (record.entries?.[index] || [])
+      .slice(0, count)
+      .filter(validSet);
+
+    if (!rows.length) return null;
+
+    const weighted = rows
+      .map(set => {
+        const weight = weightOf(set);
+        const reps = Number(set.reps);
+
+        return weight !== null
+          ? weight * (1 + reps / 30)
+          : null;
+      })
+      .filter(value => value !== null);
+
+    if (weighted.length) {
+      return weighted.reduce((a, b) => a + b, 0) /
+        weighted.length;
+    }
+
+    return totalReps(rows) / rows.length;
+  }
+
+  function progressionOverviewData(name, index) {
+    const rx = originalPrescription(name, index);
+
+    const records = completeRecordsFor(
+      name,
+      index,
+      rx.sets
+    );
+
+    if (!records.length) {
+      return {
+        status: "baseline",
+        label: "Building baseline",
+        detail: "Complete this exercise to start tracking progress."
+      };
+    }
+
+    if (records.length < 2) {
+      return {
+        status: "baseline",
+        label: "Building baseline",
+        detail: "One completed session logged. Another is needed for comparison."
+      };
+    }
+
+    const latest = records[records.length - 1];
+    const previous = records[records.length - 2];
+
+    const latestMetric = progressionMetric(
+      latest,
+      index,
+      rx.sets
+    );
+
+    const previousMetric = progressionMetric(
+      previous,
+      index,
+      rx.sets
+    );
+
+    if (
+      latestMetric === null ||
+      previousMetric === null ||
+      previousMetric <= 0
+    ) {
+      return {
+        status: "baseline",
+        label: "Building baseline",
+        detail: "Not enough comparable performance data yet."
+      };
+    }
+
+    const change =
+      ((latestMetric - previousMetric) / previousMetric) * 100;
+
+    let consecutiveDrops = 0;
+
+    for (let i = records.length - 1; i > 0; i--) {
+      const currentMetric = progressionMetric(
+        records[i],
+        index,
+        rx.sets
+      );
+
+      const previousValue = progressionMetric(
+        records[i - 1],
+        index,
+        rx.sets
+      );
+
+      if (
+        currentMetric !== null &&
+        previousValue !== null &&
+        previousValue > 0 &&
+        currentMetric <= previousValue * 0.95
+      ) {
+        consecutiveDrops++;
+      } else {
+        break;
+      }
+    }
+
+    const latestRows = (latest.entries?.[index] || [])
+      .slice(0, rx.sets)
+      .filter(validSet);
+
+    const weights = latestRows
+      .map(weightOf)
+      .filter(value => value !== null);
+
+    const averageReps = latestRows.length
+      ? Math.round(
+          totalReps(latestRows) / latestRows.length * 10
+        ) / 10
+      : 0;
+
+    const loadText = weights.length
+      ? `${median(weights)} kg`
+      : "Bodyweight / timed";
+
+    const performanceText =
+      `Latest: ${loadText} · ${averageReps} reps average`;
+
+    if (consecutiveDrops >= 2) {
+      return {
+        status: "attention",
+        label: "Needs attention",
+        detail: `${performanceText}. Performance has declined across consecutive sessions.`,
+        change
+      };
+    }
+
+    if (change >= 2) {
+      return {
+        status: "up",
+        label: "Progressing",
+        detail: `${performanceText}. Estimated performance is up ${change.toFixed(1)}%.`,
+        change
+      };
+    }
+
+    if (change <= -5) {
+      return {
+        status: "watch",
+        label: "Watch",
+        detail: `${performanceText}. Performance is down ${Math.abs(change).toFixed(1)}% this session.`,
+        change
+      };
+    }
+
+    return {
+      status: "steady",
+      label: "Maintaining",
+      detail: `${performanceText}. Performance is broadly stable.`,
+      change
+    };
+  }
+
+  function renderProgressionOverview() {
+    const dashboard = document.getElementById(
+      "ilCoachDashboard"
+    );
+
+    if (!dashboard) return;
+
+    dashboard.querySelector(
+      "#ilProgressionOverview"
+    )?.remove();
+
+    const overview = document.createElement("div");
+
+    overview.id = "ilProgressionOverview";
+    overview.className = "il-section";
+
+    const statusIcons = {
+      up: "↑",
+      steady: "●",
+      watch: "!",
+      attention: "!",
+      baseline: "○"
+    };
+
+    let exerciseCount = 0;
+    let progressingCount = 0;
+    let attentionCount = 0;
+
+    const sections = Object.keys(plan).map(name => {
+      const rows = plan[name].items.map((item, index) => {
+        exerciseCount++;
+
+        const result = progressionOverviewData(
+          name,
+          index
+        );
+
+        if (result.status === "up") progressingCount++;
+        if (result.status === "attention") attentionCount++;
+
+        return `
+          <div class="il-progression-row">
+            <div class="il-progression-main">
+              <b>${esc(item[0])}</b>
+              <span class="il-progression-status ${result.status}">
+                ${statusIcons[result.status]} ${esc(result.label)}
+              </span>
+            </div>
+            <div class="il-progression-detail">
+              ${esc(result.detail)}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="il-progression-day">
+          <h4>${esc(name)} day</h4>
+          ${rows}
+        </div>
+      `;
+    }).join("");
+
+    overview.innerHTML = `
+      <div class="il-coach-heading">
+        EXERCISE PROGRESSION OVERVIEW
+      </div>
+
+      <p class="muted small">
+        Performance comparison across your completed sessions.
+      </p>
+
+      <div class="il-coach-grid">
+        <div class="il-coach-stat">
+          <b>${progressingCount}</b>
+          <small>Progressing</small>
+        </div>
+        <div class="il-coach-stat">
+          <b>${exerciseCount}</b>
+          <small>Exercises tracked</small>
+        </div>
+        <div class="il-coach-stat">
+          <b>${attentionCount}</b>
+          <small>Need attention</small>
+        </div>
+      </div>
+
+      ${sections}
+
+      <p class="muted small">
+        Progress is estimated using recorded working sets.
+        One difficult session does not automatically mean lost strength.
+        Check technique, sleep and recovery before changing your programme.
+      </p>
+    `;
+
+    dashboard.insertAdjacentElement(
+      "afterbegin",
+      overview
+    );
+  }
+
+  // Add the overview after the existing progress dashboard renders.
+  const originalProgressWithDashboard = window.renderProgress;
+
+  window.renderProgress = function () {
+    originalProgressWithDashboard();
+    renderProgressionOverview();
+  };
+
+  // ---------- V9 PROGRESSION STYLES ----------
+
+  function addProgressionStyles() {
+    if (document.getElementById("il-v9-progression-styles")) return;
+
+    const style = document.createElement("style");
+    style.id = "il-v9-progression-styles";
+
+    style.textContent = `
+      .il-progression-day {
+        margin-top: 17px;
+        padding: 12px;
+        border: 1px solid #3A414B;
+        border-radius: 13px;
+        background: #20252C;
+      }
+
+      .il-progression-day h4 {
+        color: #FF9A50;
+        margin: 0 0 8px;
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        font-size: 12px;
+      }
+
+      .il-progression-row {
+        padding: 11px 0;
+        border-top: 1px solid #3A414B;
+      }
+
+      .il-progression-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .il-progression-main b {
+        color: #F5F6F8;
+        font-size: 13px;
+      }
+
+      .il-progression-status {
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .il-progression-status.up {
+        color: #FB923C;
+      }
+
+      .il-progression-status.steady {
+        color: #C4CDD8;
+      }
+
+      .il-progression-status.watch {
+        color: #FBBF24;
+      }
+
+      .il-progression-status.attention {
+        color: #F87171;
+      }
+
+      .il-progression-status.baseline {
+        color: #A1A1AA;
+      }
+
+      .il-progression-detail {
+        color: #B2B8C2;
+        font-size: 11px;
+        margin-top: 5px;
+        line-height: 1.5;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  addProgressionStyles();
+
   // ---------- STARTUP ----------
 
   addStyles();
