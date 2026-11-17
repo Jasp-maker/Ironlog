@@ -1,4 +1,5 @@
-/* IRONLOG INTELLIGENT TRAINING COACH v8
+
+/* IRONLOG INTELLIGENT TRAINING COACH v10
    Premium charcoal / orange / red styling
    Adaptive rep targets
    Intelligent weight recommendations
@@ -10,6 +11,8 @@
    Interactive line and dot strength trends
    Workout draft recovery
    Live session comparison
+   Exercise progression overview
+   Compact accordion Progress dashboard
 
    Preserves:
    ironlog_v1
@@ -19,7 +22,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "v8";
+  const VERSION = "v10";
   const DRAFT_KEY = "ironlog_draft_v1";
 
   const originalOpenWorkout = window.openWorkout;
@@ -37,7 +40,7 @@
     typeof originalRenderProgress !== "function" ||
     typeof originalPrescription !== "function"
   ) {
-    console.error("IronLog v8 could not find all original app functions.");
+    console.error("IronLog v10 could not find all original app functions.");
     return;
   }
 
@@ -1924,7 +1927,6 @@
 
     originalRenderExercises();
 
-    // NEW: Install comparison styling when workout cards render.
     addComparisonStyles();
 
     const cards = document.querySelectorAll(
@@ -1988,7 +1990,6 @@
       }
     });
 
-    // NEW: Actually render the live comparison panels.
     renderSessionComparison();
 
     document.querySelectorAll(
@@ -2142,160 +2143,7 @@
     }
   };
 
-  // ---------- PROGRESS DASHBOARD ----------
-
-  function renderCoachDashboard() {
-    addStyles();
-    addPremiumStyles();
-
-    const historyCard = document
-      .getElementById("historyList")
-      ?.closest(".card");
-
-    if (!historyCard) return;
-
-    let dashboard = document.getElementById(
-      "ilCoachDashboard"
-    );
-
-    if (!dashboard) {
-      dashboard = document.createElement("div");
-      dashboard.id = "ilCoachDashboard";
-
-      historyCard.insertAdjacentElement(
-        "beforebegin",
-        dashboard
-      );
-    }
-
-    const week = weeklyReport();
-    const exercises = allExercises();
-    const records = exercises.filter(item => item.pr);
-
-    dashboard.className = "il-coach-card";
-
-    dashboard.innerHTML = `
-      <div class="il-coach-heading">
-        IRONLOG INTELLIGENT TRAINING COACH
-      </div>
-
-      <h3>Weekly training report</h3>
-
-      <div class="il-score">
-        <div>
-          <b>${week.score}%</b>
-          <small>Consistency and logging score · last 7 days</small>
-        </div>
-        <span class="pill">${week.sessions} / 4 sessions</span>
-      </div>
-
-      <div class="progressbar">
-        <i style="width:${week.score}%"></i>
-      </div>
-
-      <div class="il-coach-grid" style="margin:10px 0 16px">
-        <div class="il-coach-stat">
-          <b>${week.sessions}</b>
-          <small>Sessions</small>
-        </div>
-        <div class="il-coach-stat">
-          <b>${week.sets}</b>
-          <small>Sets recorded</small>
-        </div>
-        <div class="il-coach-stat">
-          <b>${week.volume.toLocaleString()}</b>
-          <small>Volume · kg</small>
-        </div>
-      </div>
-
-      <p class="muted small">
-        Set completion: ${week.completion}% of prescribed sets recorded.
-        This score measures consistency and logging, not fitness or effort.
-      </p>
-
-      <div class="il-section">
-        <h3>Muscle-group activity</h3>
-        <p class="muted small">
-          Sets and logged weighted volume over the last 7 days.
-        </p>
-        ${muscleHTML()}
-      </div>
-
-      <div class="il-section">
-        <h3>Strength trend</h3>
-        <label for="ilTrendSelect">Choose an exercise</label>
-        <select id="ilTrendSelect" class="il-select">
-          ${exercises.map((item, i) => `
-            <option value="${i}">
-              ${esc(item.name)} · ${esc(item.exercise)}
-            </option>
-          `).join("")}
-        </select>
-        <div id="ilTrendChart"></div>
-      </div>
-
-      <div class="il-section">
-        <div class="row">
-          <h3>Personal records</h3>
-          <span class="pill">
-            ${records.length} / ${exercises.length}
-          </span>
-        </div>
-
-        <div class="il-pr-list">
-          ${exercises.map(item => `
-            <div class="il-pr-row">
-              <div>
-                <b>${esc(item.exercise)}</b>
-                <div class="muted small">
-                  ${esc(item.name)}
-                </div>
-              </div>
-              <div class="il-pr-value">
-                ${item.pr
-                  ? `${item.pr.weight} kg × ${item.pr.reps}`
-                  : "Not logged"}
-              </div>
-            </div>
-          `).join("")}
-        </div>
-      </div>
-
-      <p class="muted small" style="margin-top:12px">
-        Progress recommendations are based on recorded sessions.
-        Always prioritise controlled technique, sensible effort and recovery.
-      </p>
-    `;
-
-    const select = document.getElementById(
-      "ilTrendSelect"
-    );
-
-    const chart = document.getElementById(
-      "ilTrendChart"
-    );
-
-    function updateChart() {
-      const item = exercises[Number(select.value)];
-
-      chart.innerHTML = item
-        ? trendChart(item.name, item.index)
-        : "";
-    }
-
-    select.onchange = updateChart;
-    updateChart();
-  }
-
-  window.renderProgress = function () {
-    addStyles();
-    addPremiumStyles();
-
-    originalRenderProgress();
-    renderCoachDashboard();
-  };
-
-  // ---------- V9 EXERCISE PROGRESSION OVERVIEW ----------
+  // ---------- V9 EXERCISE PROGRESSION DATA ----------
 
   function progressionMetric(record, index, count) {
     const rows = (record.entries?.[index] || [])
@@ -2461,6 +2309,249 @@
     };
   }
 
+  // ---------- V10 COMPACT PROGRESS DASHBOARD ----------
+
+  function renderCoachDashboard() {
+    addStyles();
+    addPremiumStyles();
+    addProgressionStyles();
+
+    const historyCard = document
+      .getElementById("historyList")
+      ?.closest(".card");
+
+    if (!historyCard) return;
+
+    let dashboard = document.getElementById(
+      "ilCoachDashboard"
+    );
+
+    if (!dashboard) {
+      dashboard = document.createElement("div");
+      dashboard.id = "ilCoachDashboard";
+
+      historyCard.insertAdjacentElement(
+        "beforebegin",
+        dashboard
+      );
+    }
+
+    const exercises = allExercises();
+
+    let progressing = 0;
+    let attention = 0;
+
+    exercises.forEach(item => {
+      const result = progressionOverviewData(
+        item.name,
+        item.index
+      );
+
+      if (result.status === "up") progressing++;
+      if (result.status === "attention") attention++;
+    });
+
+    dashboard.className = "il-coach-card";
+
+    dashboard.innerHTML = `
+      <div class="il-coach-heading">
+        IRONLOG · TRAINING INSIGHTS
+      </div>
+
+      <div class="il-coach-grid il-overview-stats">
+        <div class="il-coach-stat">
+          <b>${progressing}</b>
+          <small>Progressing</small>
+        </div>
+
+        <div class="il-coach-stat">
+          <b>${exercises.length}</b>
+          <small>Exercises tracked</small>
+        </div>
+
+        <div class="il-coach-stat">
+          <b>${attention}</b>
+          <small>Need attention</small>
+        </div>
+      </div>
+
+      <details class="il-accordion il-main-coach">
+        <summary>
+          <span class="il-accordion-icon">✦</span>
+
+          <span class="il-accordion-title">
+            <strong>Intelligent Training Coach</strong>
+            <small>Weekly report, activity and strength insights</small>
+          </span>
+
+          <span class="il-accordion-arrow">⌄</span>
+        </summary>
+
+        <div class="il-accordion-content">
+
+          <details class="il-sub-accordion">
+            <summary>
+              <span>Weekly Training Report</span>
+              <span class="il-accordion-arrow">⌄</span>
+            </summary>
+
+            <div class="il-sub-content">
+              <div id="ilWeeklyReport"></div>
+            </div>
+          </details>
+
+          <details class="il-sub-accordion">
+            <summary>
+              <span>Muscle Group Activity</span>
+              <span class="il-accordion-arrow">⌄</span>
+            </summary>
+
+            <div class="il-sub-content">
+              <p class="muted small">
+                Sets and logged weighted volume over the last 7 days.
+              </p>
+
+              ${muscleHTML()}
+            </div>
+          </details>
+
+          <details class="il-sub-accordion">
+            <summary>
+              <span>Strength Trends</span>
+              <span class="il-accordion-arrow">⌄</span>
+            </summary>
+
+            <div class="il-sub-content">
+              <label for="ilTrendSelect">Choose an exercise</label>
+
+              <select id="ilTrendSelect" class="il-select">
+                ${exercises.map((item, i) => `
+                  <option value="${i}">
+                    ${esc(item.name)} · ${esc(item.exercise)}
+                  </option>
+                `).join("")}
+              </select>
+
+              <div id="ilTrendChart"></div>
+            </div>
+          </details>
+
+          <details class="il-sub-accordion">
+            <summary>
+              <span>Personal Records</span>
+
+              <span class="il-pr-count">
+                ${exercises.filter(item => item.pr).length} / ${exercises.length}
+              </span>
+
+              <span class="il-accordion-arrow">⌄</span>
+            </summary>
+
+            <div class="il-sub-content">
+              <div class="il-pr-list">
+                ${exercises.map(item => `
+                  <div class="il-pr-row">
+                    <div>
+                      <b>${esc(item.exercise)}</b>
+
+                      <div class="muted small">
+                        ${esc(item.name)}
+                      </div>
+                    </div>
+
+                    <div class="il-pr-value">
+                      ${item.pr
+                        ? `${item.pr.weight} kg × ${item.pr.reps}`
+                        : "Not logged"}
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </details>
+
+          <p class="muted small il-coach-footnote">
+            Progress recommendations are based on recorded sessions.
+            Always prioritise controlled technique, sensible effort and recovery.
+          </p>
+
+        </div>
+      </details>
+    `;
+
+    // Build the weekly report inside its own expandable section.
+    const week = weeklyReport();
+    const weeklyContainer = document.getElementById(
+      "ilWeeklyReport"
+    );
+
+    if (weeklyContainer) {
+      weeklyContainer.innerHTML = `
+        <div class="il-score">
+          <div>
+            <b>${week.score}%</b>
+            <small>Consistency and logging score · last 7 days</small>
+          </div>
+
+          <span class="pill">
+            ${week.sessions} / 4 sessions
+          </span>
+        </div>
+
+        <div class="progressbar">
+          <i style="width:${week.score}%"></i>
+        </div>
+
+        <div class="il-coach-grid" style="margin:10px 0 12px">
+          <div class="il-coach-stat">
+            <b>${week.sessions}</b>
+            <small>Sessions</small>
+          </div>
+
+          <div class="il-coach-stat">
+            <b>${week.sets}</b>
+            <small>Sets recorded</small>
+          </div>
+
+          <div class="il-coach-stat">
+            <b>${week.volume.toLocaleString()}</b>
+            <small>Volume · kg</small>
+          </div>
+        </div>
+
+        <p class="muted small">
+          Set completion: ${week.completion}% of prescribed sets recorded.
+          This score measures consistency and logging, not fitness or effort.
+        </p>
+      `;
+    }
+
+    const select = document.getElementById(
+      "ilTrendSelect"
+    );
+
+    const chart = document.getElementById(
+      "ilTrendChart"
+    );
+
+    function updateChart() {
+      if (!select || !chart) return;
+
+      const item = exercises[Number(select.value)];
+
+      chart.innerHTML = item
+        ? trendChart(item.name, item.index)
+        : "";
+    }
+
+    if (select) {
+      select.onchange = updateChart;
+      updateChart();
+    }
+  }
+
+  // ---------- V10 EXPANDABLE EXERCISE PROGRESSION ----------
+
   function renderProgressionOverview() {
     const dashboard = document.getElementById(
       "ilCoachDashboard"
@@ -2485,115 +2576,239 @@
       baseline: "○"
     };
 
-    let exerciseCount = 0;
-    let progressingCount = 0;
-    let attentionCount = 0;
-
     const sections = Object.keys(plan).map(name => {
-      const rows = plan[name].items.map((item, index) => {
-        exerciseCount++;
+      let dayProgressing = 0;
 
+      const results = plan[name].items.map((item, index) => {
         const result = progressionOverviewData(
           name,
           index
         );
 
-        if (result.status === "up") progressingCount++;
-        if (result.status === "attention") attentionCount++;
+        if (result.status === "up") dayProgressing++;
 
-        return `
-          <div class="il-progression-row">
-            <div class="il-progression-main">
-              <b>${esc(item[0])}</b>
-              <span class="il-progression-status ${result.status}">
-                ${statusIcons[result.status]} ${esc(result.label)}
-              </span>
-            </div>
-            <div class="il-progression-detail">
-              ${esc(result.detail)}
-            </div>
+        return { item, result };
+      });
+
+      const rows = results.map(({ item, result }) => `
+        <div class="il-progression-row">
+          <div class="il-progression-main">
+            <b>${esc(item[0])}</b>
+
+            <span class="il-progression-status ${result.status}">
+              ${statusIcons[result.status]} ${esc(result.label)}
+            </span>
           </div>
-        `;
-      }).join("");
+
+          <div class="il-progression-detail">
+            ${esc(result.detail)}
+          </div>
+        </div>
+      `).join("");
 
       return `
-        <div class="il-progression-day">
-          <h4>${esc(name)} day</h4>
-          ${rows}
-        </div>
+        <details class="il-progression-day">
+          <summary>
+            <span class="il-progression-day-title">
+              <strong>${esc(name)} Day</strong>
+
+              <small>
+                ${results.length} exercises · ${dayProgressing} progressing
+              </small>
+            </span>
+
+            <span class="il-accordion-arrow">⌄</span>
+          </summary>
+
+          <div class="il-progression-day-content">
+            ${rows}
+          </div>
+        </details>
       `;
     }).join("");
 
     overview.innerHTML = `
       <div class="il-coach-heading">
-        EXERCISE PROGRESSION OVERVIEW
+        EXERCISE PROGRESSION
       </div>
 
       <p class="muted small">
-        Performance comparison across your completed sessions.
+        Tap a training day to inspect your individual exercise progress.
       </p>
-
-      <div class="il-coach-grid">
-        <div class="il-coach-stat">
-          <b>${progressingCount}</b>
-          <small>Progressing</small>
-        </div>
-        <div class="il-coach-stat">
-          <b>${exerciseCount}</b>
-          <small>Exercises tracked</small>
-        </div>
-        <div class="il-coach-stat">
-          <b>${attentionCount}</b>
-          <small>Need attention</small>
-        </div>
-      </div>
 
       ${sections}
 
-      <p class="muted small">
+      <p class="muted small il-progression-footnote">
         Progress is estimated using recorded working sets.
         One difficult session does not automatically mean lost strength.
         Check technique, sleep and recovery before changing your programme.
       </p>
     `;
 
-    dashboard.insertAdjacentElement(
-      "afterbegin",
-      overview
-    );
+    dashboard.appendChild(overview);
   }
 
-  // Add the overview after the existing progress dashboard renders.
-  const originalProgressWithDashboard = window.renderProgress;
-
-  window.renderProgress = function () {
-    originalProgressWithDashboard();
-    renderProgressionOverview();
-  };
-
-  // ---------- V9 PROGRESSION STYLES ----------
+  // ---------- V10 ACCORDION STYLES ----------
 
   function addProgressionStyles() {
-    if (document.getElementById("il-v9-progression-styles")) return;
+    if (document.getElementById("il-v10-layout-styles")) return;
 
     const style = document.createElement("style");
-    style.id = "il-v9-progression-styles";
+    style.id = "il-v10-layout-styles";
 
     style.textContent = `
-      .il-progression-day {
-        margin-top: 17px;
+      .il-overview-stats {
+        margin: 12px 0 18px;
+      }
+
+      .il-accordion,
+      .il-sub-accordion {
+        background: #20252C;
+        border: 1px solid #3A414B;
+        border-radius: 13px;
+        margin-top: 10px;
+        overflow: hidden;
+      }
+
+      .il-accordion > summary,
+      .il-sub-accordion > summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 15px;
+        cursor: pointer;
+        list-style: none;
+        color: #F5F6F8;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .il-accordion > summary::-webkit-details-marker,
+      .il-sub-accordion > summary::-webkit-details-marker,
+      .il-progression-day > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .il-accordion-title {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .il-accordion > summary strong,
+      .il-progression-day > summary strong {
+        display: block;
+        color: #F5F6F8;
+        font-size: 13px;
+      }
+
+      .il-accordion > summary small,
+      .il-progression-day > summary small {
+        display: block;
+        color: #B2B8C2;
+        font-size: 10px;
+        font-weight: 500;
+        margin-top: 4px;
+      }
+
+      .il-accordion-icon {
+        color: #FF8A3D;
+        font-size: 21px;
+        flex: 0 0 auto;
+      }
+
+      .il-accordion-arrow {
+        color: #FF9A50;
+        font-size: 20px;
+        transition: transform .2s ease;
+        flex: 0 0 auto;
+      }
+
+      .il-accordion[open] > summary,
+      .il-sub-accordion[open] > summary,
+      .il-progression-day[open] > summary {
+        border-bottom: 1px solid #3A414B;
+        background: #292F37;
+      }
+
+      .il-accordion[open] > summary .il-accordion-arrow,
+      .il-sub-accordion[open] > summary .il-accordion-arrow,
+      .il-progression-day[open] > summary .il-accordion-arrow {
+        transform: rotate(180deg);
+      }
+
+      .il-accordion-content {
+        padding: 8px 12px 14px;
+      }
+
+      .il-sub-accordion {
+        margin-top: 9px;
+        background: #191D23;
+      }
+
+      .il-sub-accordion > summary {
+        padding: 13px;
+        font-size: 12px;
+      }
+
+      .il-sub-content {
         padding: 12px;
+      }
+
+      .il-pr-count {
+        color: #FF9A50;
+        font-size: 11px;
+        margin-left: auto;
+      }
+
+      .il-pr-list {
+        max-height: 420px;
+        overflow: auto;
+      }
+
+      .il-main-coach {
+        border-color: #754323;
+      }
+
+      .il-main-coach > summary {
+        background: linear-gradient(120deg,#30251F,#20252C);
+      }
+
+      .il-main-coach[open] > summary {
+        border-bottom-color: #754323;
+      }
+
+      .il-coach-footnote,
+      .il-progression-footnote {
+        line-height: 1.5;
+        margin-top: 14px;
+      }
+
+      .il-progression-day {
+        margin-top: 9px;
         border: 1px solid #3A414B;
         border-radius: 13px;
         background: #20252C;
+        overflow: hidden;
       }
 
-      .il-progression-day h4 {
-        color: #FF9A50;
-        margin: 0 0 8px;
-        text-transform: uppercase;
-        letter-spacing: .8px;
-        font-size: 12px;
+      .il-progression-day > summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 14px;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .il-progression-day-title {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .il-progression-day-content {
+        padding: 0 13px 10px;
       }
 
       .il-progression-row {
@@ -2645,17 +2860,49 @@
         margin-top: 5px;
         line-height: 1.5;
       }
+
+      @media (max-width: 380px) {
+        .il-accordion-content {
+          padding-left: 8px;
+          padding-right: 8px;
+        }
+
+        .il-coach-stat {
+          padding: 9px 5px;
+        }
+
+        .il-accordion > summary {
+          padding: 13px 11px;
+        }
+
+        .il-progression-main {
+          align-items: flex-start;
+        }
+      }
     `;
 
     document.head.appendChild(style);
   }
 
-  addProgressionStyles();
+  // ---------- PROGRESS TAB WRAPPER ----------
+
+  window.renderProgress = function () {
+    addStyles();
+    addPremiumStyles();
+    addProgressionStyles();
+
+    originalRenderProgress();
+
+    renderCoachDashboard();
+    renderProgressionOverview();
+  };
 
   // ---------- STARTUP ----------
 
   addStyles();
   addPremiumStyles();
+  addComparisonStyles();
+  addProgressionStyles();
 
   const finishButton = document.getElementById(
     "finishWorkout"
@@ -2679,6 +2926,6 @@
   renderHome();
 
   console.log(
-    "IronLog Intelligent Training Coach v8 loaded."
+    `IronLog Intelligent Training Coach ${VERSION} loaded.`
   );
 })();
