@@ -22,7 +22,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "v10";
+  const VERSION = "v11";
   const DRAFT_KEY = "ironlog_draft_v1";
 
   const originalOpenWorkout = window.openWorkout;
