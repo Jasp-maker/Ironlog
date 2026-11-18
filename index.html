@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -159,7 +160,23 @@ document.getElementById("chooseWorkout").onclick=()=>showPage("programmePage");
 document.getElementById("backHome").onclick=()=>{renderHome();showPage("todayPage")};
 document.getElementById("finishWorkout").onclick=finish;
 document.getElementById("saveProgrammeStart").onclick=()=>{const v=document.getElementById("programmeStart").value;if(!v){alert("Choose a programme start date.");return}db.settings.startDate=v;save();renderCycle();renderHome();renderProgramme();alert("12-week programme schedule updated.")};
-document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{if(b.dataset.page==="todayPage")renderHome();if(b.dataset.page==="programmePage")renderProgramme();showPage(b.dataset.page)});
+
+// UPDATED NAVIGATION: show the page, then rebuild Home using the upgraded renderer.
+document.querySelectorAll("nav button").forEach(b => {
+  b.onclick = () => {
+    const page = b.dataset.page;
+    showPage(page);
+
+    if (page === "todayPage") {
+      window.renderHome();
+    }
+
+    if (page === "programmePage") {
+      renderProgramme();
+    }
+  };
+});
+
 document.getElementById("exportData").onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ironlog-backup.json";a.click();URL.revokeObjectURL(a.href)};
 document.getElementById("importData").onchange=async e=>{try{let data=JSON.parse(await e.target.files[0].text());if(!Array.isArray(data.history))throw Error();db=data;save();renderHome();renderProgress();alert("Backup imported.")}catch(err){alert("That backup file could not be read.")}e.target.value=""};
 document.getElementById("resetData").onclick=()=>{if(confirm("Delete all workout history on this device? Export a backup first if you want to keep it.")){db={history:[]};save();renderProgress();renderHome()}};
@@ -169,4 +186,5 @@ renderHome();
 <script src="./ironlog-upgrade.js"></script>
 <script src="./ironlog-library.js"></script>
 <script src="./ironlog-visuals.js"></script>
-</body></html>
+</body>
+</html>
