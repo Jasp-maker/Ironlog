@@ -3268,7 +3268,7 @@
     }
   );
 
-  renderHome();
+   window.renderHome();
 
   console.log(
     `IronLog Intelligent Training Coach ${VERSION} loaded.`
