@@ -3274,3 +3274,444 @@
     `IronLog Intelligent Training Coach ${VERSION} loaded.`
   );
 })();
+
+/* =========================================================
+   IRONLOG v12 — INTELLIGENT PROGRESSION ENGINE
+   Multi-session performance analysis
+   Exercise-specific weight increments
+   Increase / maintain / reduce recommendations
+   Preserves all existing IronLog storage
+   ========================================================= */
+
+(() => {
+  "use strict";
+
+  const V12_STYLE_ID = "il-v12-progression-styles";
+
+  function v12ValidSet(set) {
+    return !!set &&
+      set.reps !== "" &&
+      Number.isFinite(Number(set.reps)) &&
+      Number(set.reps) > 0;
+  }
+
+  function v12Weight(set) {
+    const value = Number(set?.weight);
+
+    return set?.weight !== "" &&
+      Number.isFinite(value) &&
+      value > 0
+        ? value
+        : null;
+  }
+
+  function v12Median(values) {
+    if (!values.length) return null;
+
+    const sorted = values.slice().sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+
+    return sorted.length % 2
+      ? sorted[middle]
+      : (sorted[middle - 1] + sorted[middle]) / 2;
+  }
+
+  function v12Target(target) {
+    const match = String(target).match(/(\d+)\s*[–-]\s*(\d+)/);
+
+    return match
+      ? {
+          min: Number(match[1]),
+          max: Number(match[2]),
+          timed: /sec/i.test(String(target))
+        }
+      : null;
+  }
+
+  function v12Increment(name, weight) {
+    const lower = name.toLowerCase();
+
+    if (lower.includes("leg press")) return 5;
+
+    if (
+      lower.includes("dumbbell") ||
+      lower.includes("lateral raise") ||
+      lower.includes("curl") ||
+      lower.includes("extension") ||
+      lower.includes("pec deck")
+    ) {
+      return weight < 15 ? 1 : 2;
+    }
+
+    if (
+      lower.includes("cable") ||
+      lower.includes("pulldown") ||
+      lower.includes("row")
+    ) {
+      return weight < 30 ? 1.25 : 2.5;
+    }
+
+    return 2.5;
+  }
+
+  function v12RoundWeight(value) {
+    return Math.round(value * 2) / 2;
+  }
+
+  function v12Records(name, index, setCount) {
+    if (!db || !Array.isArray(db.history)) return [];
+
+    return db.history
+      .filter(record =>
+        record.name === name &&
+        Array.isArray(record.entries?.[index]) &&
+        record.entries[index].length >= setCount &&
+        record.entries[index]
+          .slice(0, setCount)
+          .every(v12ValidSet)
+      )
+      .slice()
+      .sort((a, b) =>
+        new Date(a.date || 0) - new Date(b.date || 0)
+      );
+  }
+
+  function v12Analyse(name, index) {
+    const item = plan[name]?.items?.[index];
+
+    if (!item) return null;
+
+    const exercise = item[0];
+    const setCount = Number(item[1]);
+    const target = v12Target(item[2]);
+
+    if (!target) {
+      return {
+        status: "maintain",
+        title: "Maintain and refine",
+        detail: "Keep building consistent performance before changing the exercise difficulty."
+      };
+    }
+
+    const records = v12Records(name, index, setCount);
+
+    if (records.length < 2) {
+      return {
+        status: "baseline",
+        title: "Building your baseline",
+        detail: "Complete at least two comparable sessions. IronLog needs more performance data before recommending a weight change."
+      };
+    }
+
+    const latest = records[records.length - 1];
+    const previous = records[records.length - 2];
+
+    const latestRows = latest.entries[index].slice(0, setCount);
+    const previousRows = previous.entries[index].slice(0, setCount);
+
+    const latestReps = latestRows.map(set => Number(set.reps));
+    const previousReps = previousRows.map(set => Number(set.reps));
+
+    const latestTotal = latestReps.reduce((a, b) => a + b, 0);
+    const previousTotal = previousReps.reduce((a, b) => a + b, 0);
+
+    const weights = latestRows
+      .map(v12Weight)
+      .filter(value => value !== null);
+
+    const previousWeights = previousRows
+      .map(v12Weight)
+      .filter(value => value !== null);
+
+    const load = v12Median(weights);
+    const previousLoad = v12Median(previousWeights);
+
+    const allLatestTop = latestReps.every(
+      reps => reps >= target.max
+    );
+
+    const allPreviousTop = previousReps.every(
+      reps => reps >= target.max
+    );
+
+    const belowMinimum = latestReps.filter(
+      reps => reps < target.min
+    ).length;
+
+    const significantDrop =
+      previousTotal > 0 &&
+      latestTotal <= previousTotal * 0.8;
+
+    if (
+      belowMinimum >= Math.ceil(setCount / 2) ||
+      significantDrop
+    ) {
+      if (load !== null) {
+        const reduction = Math.max(
+          1,
+          v12Increment(exercise, load)
+        );
+
+        const suggested = v12RoundWeight(
+          Math.max(0, load - reduction)
+        );
+
+        return {
+          status: "reduce",
+          title: "Consider reducing the load",
+          suggestedWeight: suggested,
+          detail: significantDrop
+            ? "Your total repetitions dropped by at least 20% compared with the previous session. Consider a lighter working weight and check your recovery."
+            : `Several sets fell below your target minimum of ${target.min}. A small reduction may help restore controlled repetitions and consistent technique.`
+        };
+      }
+
+      return {
+        status: "reduce",
+        title: "Review exercise difficulty",
+        detail: "Your recent performance has dipped. Check recovery and consider an easier variation before progressing."
+      };
+    }
+
+    if (
+      !target.timed &&
+      load !== null &&
+      allLatestTop &&
+      allPreviousTop &&
+      (
+        previousLoad === null ||
+        load >= previousLoad
+      )
+    ) {
+      const increment = v12Increment(exercise, load);
+
+      const suggested = v12RoundWeight(
+        load + increment
+      );
+
+      return {
+        status: "increase",
+        title: "Progression earned",
+        suggestedWeight: suggested,
+        detail: `You've reached at least ${target.max} reps on every set in two consecutive sessions. Consider moving from ${load} kg to ${suggested} kg while maintaining controlled technique.`
+      };
+    }
+
+    if (target.timed && allLatestTop && allPreviousTop) {
+      return {
+        status: "maintain",
+        title: "Timed target achieved",
+        detail: "You've consistently reached the top of your timed target. Maintain the hold quality before considering a harder variation."
+      };
+    }
+
+    if (allLatestTop && !allPreviousTop) {
+      return {
+        status: "maintain",
+        title: "Confirm your progress",
+        detail: "You've reached the top of the rep range this session. Repeat that performance next time before increasing the load."
+      };
+    }
+
+    return {
+      status: "maintain",
+      title: "Maintain your working weight",
+      detail: `Keep your current load and build towards ${target.max} reps on every set. IronLog will reassess your progression after your next completed session.`
+    };
+  }
+
+  function v12Styles() {
+    if (document.getElementById(V12_STYLE_ID)) return;
+
+    const style = document.createElement("style");
+    style.id = V12_STYLE_ID;
+
+    style.textContent = `
+      .il-v12-card {
+        margin-top: 12px;
+        padding: 13px;
+        border-radius: 13px;
+        background: linear-gradient(145deg,#242A32,#191D23);
+        border: 1px solid #454D59;
+        color: #F5F6F8;
+      }
+
+      .il-v12-heading {
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 1.2px;
+        color: #FF9148;
+        margin-bottom: 9px;
+      }
+
+      .il-v12-title {
+        font-size: 14px;
+        font-weight: 900;
+        margin-bottom: 6px;
+      }
+
+      .il-v12-detail {
+        font-size: 12px;
+        line-height: 1.55;
+        color: #C4CBD4;
+      }
+
+      .il-v12-weight {
+        margin-top: 10px;
+        padding: 10px;
+        background: #30251F;
+        border: 1px solid #754323;
+        border-radius: 10px;
+        color: #FFB477;
+        font-size: 13px;
+        font-weight: 850;
+      }
+
+      .il-v12-card button {
+        width: 100%;
+        margin-top: 10px;
+        padding: 11px;
+        border-radius: 10px;
+        background: linear-gradient(90deg,#FF762E,#ED493E);
+        border: 0;
+        color: white;
+        font-weight: 900;
+      }
+
+      .il-v12-card.increase {
+        border-color: #A85A2D;
+      }
+
+      .il-v12-card.reduce {
+        border-color: #A83242;
+      }
+
+      .il-v12-card.reduce .il-v12-heading {
+        color: #FF747F;
+      }
+
+      .il-v12-card.baseline {
+        border-color: #454D59;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function v12Render() {
+    if (!current || !plan[current]) return;
+
+    v12Styles();
+
+    const cards = document.querySelectorAll(
+      "#exerciseList > .card"
+    );
+
+    cards.forEach((card, index) => {
+      card.querySelector(".il-v12-card")?.remove();
+
+      const result = v12Analyse(current, index);
+      if (!result) return;
+
+      const panel = document.createElement("div");
+
+      panel.className =
+        `il-v12-card ${result.status}`;
+
+      const weightHTML = result.suggestedWeight !== undefined
+        ? `
+          <div class="il-v12-weight">
+            Suggested next-session weight:
+            ${result.suggestedWeight} kg
+          </div>
+          <button
+            type="button"
+            data-v12-apply="${index}"
+            data-v12-weight="${result.suggestedWeight}">
+            Apply to empty sets
+          </button>
+        `
+        : "";
+
+      panel.innerHTML = `
+        <div class="il-v12-heading">
+          IRONLOG · V12 PROGRESSION COACH
+        </div>
+        <div class="il-v12-title">
+          ${result.title}
+        </div>
+        <div class="il-v12-detail">
+          ${result.detail}
+        </div>
+        ${weightHTML}
+      `;
+
+      card.appendChild(panel);
+    });
+  }
+
+  function v12ApplyWeight(index, weight) {
+    if (!current || !plan[current] || !Array.isArray(draft[index])) {
+      return;
+    }
+
+    const count = Number(plan[current].items[index][1]);
+
+    for (let i = 0; i < count; i++) {
+      if (!draft[index][i]) {
+        draft[index][i] = {
+          weight: "",
+          reps: ""
+        };
+      }
+
+      if (draft[index][i].weight === "") {
+        draft[index][i].weight = String(weight);
+      }
+    }
+
+    try {
+      localStorage.setItem(
+        "ironlog_draft_v1",
+        JSON.stringify({
+          name: current,
+          dateKey: new Date().toDateString(),
+          savedAt: new Date().toISOString(),
+          entries: draft
+        })
+      );
+    } catch (error) {
+      console.warn("IronLog v12 draft save failed.", error);
+    }
+
+    window.renderExercises();
+  }
+
+  // Extend the existing workout renderer without replacing it.
+  const previousRenderer = window.renderExercises;
+
+  if (typeof previousRenderer === "function" &&
+      !previousRenderer.__ironlogV12) {
+
+    const upgradedRenderer = function() {
+      previousRenderer();
+      v12Render();
+    };
+
+    upgradedRenderer.__ironlogV12 = true;
+    window.renderExercises = upgradedRenderer;
+  }
+
+  // Handle progression buttons.
+  document.addEventListener("click", event => {
+    const button = event.target.closest("[data-v12-apply]");
+    if (!button) return;
+
+    v12ApplyWeight(
+      Number(button.dataset.v12Apply),
+      Number(button.dataset.v12Weight)
+    );
+  });
+
+  console.log("IronLog v12 Intelligent Progression loaded.");
+})();
