@@ -3715,3 +3715,787 @@
 
   console.log("IronLog v12 Intelligent Progression loaded.");
 })();
+
+/* =========================================================
+   IRONLOG V12.1 — READINESS, CONSISTENCY & ACHIEVEMENTS
+   Adds:
+   - Daily training readiness check-in
+   - Recovery-aware coaching prompts
+   - Weekly consistency score
+   - Training milestones and achievements
+
+   Preserves:
+   ironlog_v1
+   ironlog_draft_v1
+   ironlog_readiness_v12
+   ironlog_achievements_v12
+   ========================================================= */
+
+(() => {
+  "use strict";
+
+  const READINESS_KEY = "ironlog_readiness_v12";
+  const ACHIEVEMENTS_KEY = "ironlog_achievements_v12";
+  const STYLE_ID = "il-v12-intelligence-styles";
+
+  function readReadiness() {
+    try {
+      const data = JSON.parse(
+        localStorage.getItem(READINESS_KEY) || "null"
+      );
+
+      if (
+        data &&
+        data.dateKey === new Date().toDateString()
+      ) {
+        return data;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  function saveReadiness(energy, soreness) {
+    const data = {
+      dateKey: new Date().toDateString(),
+      energy: Number(energy),
+      soreness: Number(soreness),
+      savedAt: new Date().toISOString()
+    };
+
+    try {
+      localStorage.setItem(
+        READINESS_KEY,
+        JSON.stringify(data)
+      );
+    } catch (error) {
+      console.warn("IronLog readiness save failed.", error);
+    }
+
+    renderV12Panels();
+    renderExerciseReadiness();
+  }
+
+  function readinessScore(data) {
+    if (!data) return null;
+
+    return Math.round(
+      ((data.energy + (6 - data.soreness)) / 10) * 100
+    );
+  }
+
+  function readinessAdvice(data) {
+    if (!data) {
+      return {
+        title: "Check in before training",
+        detail: "Record your energy and muscle soreness to receive a recovery-aware coaching prompt.",
+        status: "baseline"
+      };
+    }
+
+    const score = readinessScore(data);
+
+    if (score >= 75) {
+      return {
+        title: "Readiness looks positive",
+        detail: "Your check-in suggests you're feeling reasonably prepared. Follow your planned progression, while keeping technique and effort under control.",
+        status: "ready"
+      };
+    }
+
+    if (score >= 50) {
+      return {
+        title: "Take a measured approach",
+        detail: "Your check-in suggests some recovery demands. Warm up carefully, assess how you feel and be prepared to maintain your working weights.",
+        status: "moderate"
+      };
+    }
+
+    return {
+      title: "Prioritise recovery today",
+      detail: "Your check-in suggests low readiness. Consider a lighter session or rest. Avoid forcing personal records or pushing through significant discomfort.",
+      status: "low"
+    };
+  }
+
+  function weeklyConsistency() {
+    if (!db || !Array.isArray(db.history)) {
+      return {
+        sessions: 0,
+        target: 4,
+        percent: 0
+      };
+    }
+
+    const now = new Date();
+    const start = new Date(now);
+
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - 6);
+
+    const sessions = db.history.filter(record => {
+      const date = new Date(record.date);
+
+      return !isNaN(date) &&
+        date >= start &&
+        date <= now &&
+        plan[record.name];
+    });
+
+    const count = sessions.length;
+
+    return {
+      sessions: count,
+      target: 4,
+      percent: Math.min(
+        100,
+        Math.round(count / 4 * 100)
+      )
+    };
+  }
+
+  function lifetimeSessions() {
+    if (!db || !Array.isArray(db.history)) return 0;
+
+    return db.history.filter(record =>
+      plan[record.name]
+    ).length;
+  }
+
+  function exercisesLogged() {
+    if (!db || !Array.isArray(db.history)) return 0;
+
+    const found = new Set();
+
+    db.history.forEach(record => {
+      if (!plan[record.name]) return;
+
+      (record.entries || []).forEach((rows, index) => {
+        if (
+          Array.isArray(rows) &&
+          rows.some(set =>
+            set &&
+            set.reps !== "" &&
+            Number(set.reps) > 0
+          )
+        ) {
+          found.add(`${record.name}-${index}`);
+        }
+      });
+    });
+
+    return found.size;
+  }
+
+  function unlockedAchievements() {
+    let saved = {};
+
+    try {
+      saved = JSON.parse(
+        localStorage.getItem(ACHIEVEMENTS_KEY) || "{}"
+      ) || {};
+    } catch (_) {}
+
+    const sessions = lifetimeSessions();
+    const exercises = exercisesLogged();
+    const week = weeklyConsistency();
+
+    const milestones = [
+      {
+        id: "first",
+        title: "First session",
+        detail: "Your IronLog journey has begun.",
+        earned: sessions >= 1,
+        icon: "🏁"
+      },
+      {
+        id: "ten",
+        title: "10 sessions",
+        detail: "Ten completed workouts recorded.",
+        earned: sessions >= 10,
+        icon: "🔥"
+      },
+      {
+        id: "twentyfive",
+        title: "25 sessions",
+        detail: "A solid training habit is forming.",
+        earned: sessions >= 25,
+        icon: "💪"
+      },
+      {
+        id: "fifty",
+        title: "50 sessions",
+        detail: "Fifty workouts in the books.",
+        earned: sessions >= 50,
+        icon: "🏆"
+      },
+      {
+        id: "hundred",
+        title: "100 sessions",
+        detail: "A major IronLog milestone.",
+        earned: sessions >= 100,
+        icon: "⭐"
+      },
+      {
+        id: "fourweek",
+        title: "Four-session week",
+        detail: "All four planned sessions recorded in the last seven days.",
+        earned: week.sessions >= 4,
+        icon: "🎯"
+      },
+      {
+        id: "fiveexercises",
+        title: "Exercise explorer",
+        detail: "Five different exercises recorded.",
+        earned: exercises >= 5,
+        icon: "📈"
+      },
+      {
+        id: "tenexercises",
+        title: "Programme builder",
+        detail: "Ten different exercises recorded.",
+        earned: exercises >= 10,
+        icon: "🚀"
+      }
+    ];
+
+    let changed = false;
+
+    milestones.forEach(item => {
+      if (item.earned && !saved[item.id]) {
+        saved[item.id] = new Date().toISOString();
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      try {
+        localStorage.setItem(
+          ACHIEVEMENTS_KEY,
+          JSON.stringify(saved)
+        );
+      } catch (error) {
+        console.warn("IronLog achievement save failed.", error);
+      }
+    }
+
+    return milestones.map(item => ({
+      ...item,
+      unlocked: !!saved[item.id],
+      unlockedAt: saved[item.id] || null
+    }));
+  }
+
+  function addV12Styles() {
+    if (document.getElementById(STYLE_ID)) return;
+
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+
+    style.textContent = `
+      .il-v12-intelligence {
+        margin: 14px 0;
+        padding: 15px;
+        border-radius: 16px;
+        background: linear-gradient(145deg,#202630,#171B21);
+        border: 1px solid #424B57;
+        color: #F5F6F8;
+      }
+
+      .il-v12-intelligence-heading {
+        color: #FF9148;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 1.3px;
+        margin-bottom: 12px;
+      }
+
+      .il-v12-readiness-score {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        background: #292F37;
+        border: 1px solid #424B57;
+        border-radius: 12px;
+        margin: 10px 0;
+      }
+
+      .il-v12-readiness-score strong {
+        font-size: 25px;
+        color: #FF9148;
+      }
+
+      .il-v12-readiness-score small {
+        display: block;
+        color: #B2B8C2;
+        font-size: 10px;
+      }
+
+      .il-v12-readiness-title {
+        font-size: 14px;
+        font-weight: 900;
+        margin: 12px 0 5px;
+      }
+
+      .il-v12-readiness-detail {
+        font-size: 12px;
+        color: #C4CBD4;
+        line-height: 1.55;
+      }
+
+      .il-v12-input-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin: 12px 0;
+      }
+
+      .il-v12-input-grid label {
+        display: block;
+        color: #C4CBD4;
+        font-size: 11px;
+        font-weight: 800;
+        margin-bottom: 6px;
+      }
+
+      .il-v12-input-grid select {
+        width: 100%;
+        padding: 11px;
+        border-radius: 9px;
+        background: #11151A;
+        color: #FFFFFF;
+        border: 1px solid #48515D;
+      }
+
+      .il-v12-save {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+        background: linear-gradient(90deg,#FF762E,#ED493E);
+        color: #FFFFFF;
+        border: 0;
+        font-weight: 900;
+      }
+
+      .il-v12-consistency {
+        display: grid;
+        grid-template-columns: repeat(3,minmax(0,1fr));
+        gap: 8px;
+        margin: 12px 0;
+      }
+
+      .il-v12-consistency-stat {
+        padding: 11px 5px;
+        text-align: center;
+        border-radius: 10px;
+        background: #292F37;
+        border: 1px solid #3A414B;
+      }
+
+      .il-v12-consistency-stat strong {
+        display: block;
+        color: #FF9148;
+        font-size: 21px;
+      }
+
+      .il-v12-consistency-stat small {
+        display: block;
+        color: #B2B8C2;
+        font-size: 10px;
+      }
+
+      .il-v12-achievements {
+        display: grid;
+        grid-template-columns: repeat(2,minmax(0,1fr));
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .il-v12-achievement {
+        padding: 11px;
+        border-radius: 11px;
+        background: #292F37;
+        border: 1px solid #3A414B;
+        min-width: 0;
+      }
+
+      .il-v12-achievement.locked {
+        opacity: .48;
+      }
+
+      .il-v12-achievement-icon {
+        font-size: 21px;
+        margin-bottom: 6px;
+      }
+
+      .il-v12-achievement strong {
+        display: block;
+        color: #F5F6F8;
+        font-size: 12px;
+      }
+
+      .il-v12-achievement small {
+        display: block;
+        color: #B2B8C2;
+        font-size: 10px;
+        line-height: 1.4;
+        margin-top: 4px;
+      }
+
+      .il-v12-readiness-warning {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 10px;
+        background: #30251F;
+        border: 1px solid #754323;
+        color: #FFB477;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+
+      .il-v12-readiness-warning.low {
+        background: #351C22;
+        border-color: #A83242;
+        color: #FF9AA2;
+      }
+
+      @media(max-width:380px) {
+        .il-v12-input-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .il-v12-achievements {
+          gap: 6px;
+        }
+
+        .il-v12-achievement {
+          padding: 9px;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function readinessHTML() {
+    const data = readReadiness();
+    const advice = readinessAdvice(data);
+    const score = readinessScore(data);
+
+    const energy = data ? data.energy : 3;
+    const soreness = data ? data.soreness : 3;
+
+    return `
+      <section class="il-v12-intelligence">
+        <div class="il-v12-intelligence-heading">
+          DAILY TRAINING READINESS
+        </div>
+
+        <div class="il-v12-input-grid">
+          <div>
+            <label>How is your energy?</label>
+            <select data-il-readiness="energy">
+              <option value="1" ${energy === 1 ? "selected" : ""}>1 · Very low</option>
+              <option value="2" ${energy === 2 ? "selected" : ""}>2 · Low</option>
+              <option value="3" ${energy === 3 ? "selected" : ""}>3 · Average</option>
+              <option value="4" ${energy === 4 ? "selected" : ""}>4 · Good</option>
+              <option value="5" ${energy === 5 ? "selected" : ""}>5 · Excellent</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Muscle soreness</label>
+            <select data-il-readiness="soreness">
+              <option value="1" ${soreness === 1 ? "selected" : ""}>1 · None</option>
+              <option value="2" ${soreness === 2 ? "selected" : ""}>2 · Mild</option>
+              <option value="3" ${soreness === 3 ? "selected" : ""}>3 · Moderate</option>
+              <option value="4" ${soreness === 4 ? "selected" : ""}>4 · High</option>
+              <option value="5" ${soreness === 5 ? "selected" : ""}>5 · Very high</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="button" class="il-v12-save" data-il-readiness-save>
+          SAVE TODAY'S CHECK-IN
+        </button>
+
+        <div class="il-v12-readiness-score">
+          <div>
+            <strong>${score === null ? "—" : `${score}%`}</strong>
+            <small>Subjective readiness indicator</small>
+          </div>
+          <span class="pill">
+            ${score === null ? "Not checked in" : advice.status.toUpperCase()}
+          </span>
+        </div>
+
+        <div class="il-v12-readiness-title">
+          ${advice.title}
+        </div>
+
+        <div class="il-v12-readiness-detail">
+          ${advice.detail}
+        </div>
+
+        <p class="muted small" style="margin-top:10px">
+          This is a personal check-in, not a medical assessment.
+          Pain, illness or unusual symptoms should take priority over the score.
+        </p>
+      </section>
+    `;
+  }
+
+  function consistencyHTML() {
+    const week = weeklyConsistency();
+
+    return `
+      <section class="il-v12-intelligence">
+        <div class="il-v12-intelligence-heading">
+          WEEKLY CONSISTENCY TRACKER
+        </div>
+
+        <div class="il-v12-consistency">
+          <div class="il-v12-consistency-stat">
+            <strong>${week.sessions}</strong>
+            <small>Sessions logged</small>
+          </div>
+
+          <div class="il-v12-consistency-stat">
+            <strong>${week.target}</strong>
+            <small>Weekly target</small>
+          </div>
+
+          <div class="il-v12-consistency-stat">
+            <strong>${week.percent}%</strong>
+            <small>Target progress</small>
+          </div>
+        </div>
+
+        <div class="progressbar">
+          <i style="width:${week.percent}%"></i>
+        </div>
+
+        <p class="muted small" style="margin-top:10px">
+          Based on completed workouts in the last seven days.
+          Your target is four sessions, not four consecutive days.
+        </p>
+      </section>
+    `;
+  }
+
+  function achievementsHTML() {
+    const achievements = unlockedAchievements();
+    const earned = achievements.filter(item => item.unlocked).length;
+
+    return `
+      <section class="il-v12-intelligence">
+        <div class="il-v12-intelligence-heading">
+          MILESTONES & ACHIEVEMENTS
+        </div>
+
+        <div class="il-v12-readiness-score">
+          <div>
+            <strong>${earned}/${achievements.length}</strong>
+            <small>Achievements unlocked</small>
+          </div>
+          <span class="pill">IRONLOG AWARDS</span>
+        </div>
+
+        <div class="il-v12-achievements">
+          ${achievements.map(item => `
+            <div class="il-v12-achievement ${item.unlocked ? "" : "locked"}">
+              <div class="il-v12-achievement-icon">
+                ${item.icon}
+              </div>
+              <strong>${item.title}</strong>
+              <small>${item.detail}</small>
+              <small>
+                ${item.unlocked ? "✓ Unlocked" : "Not yet unlocked"}
+              </small>
+            </div>
+          `).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderV12Panels() {
+    addV12Styles();
+
+    const home = document.getElementById(
+      "ilHomeCommandCentre"
+    );
+
+    if (home) {
+      let panel = document.getElementById(
+        "ilV12HomeIntelligence"
+      );
+
+      if (!panel) {
+        panel = document.createElement("div");
+        panel.id = "ilV12HomeIntelligence";
+        home.appendChild(panel);
+      }
+
+      panel.innerHTML =
+        readinessHTML() +
+        consistencyHTML() +
+        achievementsHTML();
+    }
+
+    const progress = document.getElementById(
+      "ilCoachDashboard"
+    );
+
+    if (progress) {
+      let panel = document.getElementById(
+        "ilV12ProgressIntelligence"
+      );
+
+      if (!panel) {
+        panel = document.createElement("div");
+        panel.id = "ilV12ProgressIntelligence";
+
+        const progression = document.getElementById(
+          "ilProgressionOverview"
+        );
+
+        if (progression) {
+          progression.before(panel);
+        } else {
+          progress.appendChild(panel);
+        }
+      }
+
+      panel.innerHTML =
+        readinessHTML() +
+        consistencyHTML() +
+        achievementsHTML();
+    }
+  }
+
+  function renderExerciseReadiness() {
+    const data = readReadiness();
+    if (!data) return;
+
+    const advice = readinessAdvice(data);
+
+    document.querySelectorAll(
+      "#exerciseList > .card"
+    ).forEach(card => {
+      card.querySelector(
+        ".il-v12-readiness-warning"
+      )?.remove();
+
+      const warning = document.createElement("div");
+
+      warning.className =
+        "il-v12-readiness-warning" +
+        (advice.status === "low" ? " low" : "");
+
+      warning.textContent =
+        `READINESS CHECK: ${advice.title}. ${advice.detail}`;
+
+      const panel = card.querySelector(".il-v12-card");
+
+      if (panel) {
+        panel.appendChild(warning);
+      } else {
+        card.appendChild(warning);
+      }
+    });
+  }
+
+  // ---------- RENDER HOOKS ----------
+
+  const previousHome = window.renderHome;
+
+  if (
+    typeof previousHome === "function" &&
+    !previousHome.__ironlogV121
+  ) {
+    const upgradedHome = function() {
+      previousHome();
+      renderV12Panels();
+    };
+
+    upgradedHome.__ironlogV121 = true;
+    window.renderHome = upgradedHome;
+  }
+
+  const previousProgress = window.renderProgress;
+
+  if (
+    typeof previousProgress === "function" &&
+    !previousProgress.__ironlogV121
+  ) {
+    const upgradedProgress = function() {
+      previousProgress();
+      renderV12Panels();
+    };
+
+    upgradedProgress.__ironlogV121 = true;
+    window.renderProgress = upgradedProgress;
+  }
+
+  const previousExercises = window.renderExercises;
+
+  if (
+    typeof previousExercises === "function" &&
+    !previousExercises.__ironlogV121
+  ) {
+    const upgradedExercises = function() {
+      previousExercises();
+      renderExerciseReadiness();
+    };
+
+    upgradedExercises.__ironlogV121 = true;
+    window.renderExercises = upgradedExercises;
+  }
+
+  // ---------- CHECK-IN INTERACTION ----------
+
+  if (!window.__ironlogV121Events) {
+    window.__ironlogV121Events = true;
+
+    document.addEventListener("click", event => {
+      const button = event.target.closest(
+        "[data-il-readiness-save]"
+      );
+
+      if (!button) return;
+
+      const panel = button.closest(
+        ".il-v12-intelligence"
+      );
+
+      if (!panel) return;
+
+      const energy = panel.querySelector(
+        '[data-il-readiness="energy"]'
+      );
+
+      const soreness = panel.querySelector(
+        '[data-il-readiness="soreness"]'
+      );
+
+      if (!energy || !soreness) return;
+
+      saveReadiness(
+        energy.value,
+        soreness.value
+      );
+    });
+  }
+
+  // Initial dashboard refresh.
+  addV12Styles();
+
+  renderV12Panels();
+
+  console.log(
+    "IronLog V12.1 Readiness, Consistency and Achievements loaded."
+  );
+})();
