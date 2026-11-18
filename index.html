@@ -157,7 +157,7 @@ function renderProgress(){
 }
 document.getElementById("startToday").onclick=()=>{let n=sessionByDay[todayName()];if(n)openWorkout(n)};
 document.getElementById("chooseWorkout").onclick=()=>showPage("programmePage");
-document.getElementById("backHome").onclick=()=>{renderHome();showPage("todayPage")}; window.renderHome();};
+document.getElementById("backHome").onclick=()=>{renderHome();showPage("todayPage"); window.renderHome();};
 document.getElementById("finishWorkout").onclick=finish;
 document.getElementById("saveProgrammeStart").onclick=()=>{const v=document.getElementById("programmeStart").value;if(!v){alert("Choose a programme start date.");return}db.settings.startDate=v;save();renderCycle();renderHome();renderProgramme();alert("12-week programme schedule updated.")};
 
