@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "ironlog-v24";
+const CACHE_NAME = "ironlog-v25";
 
 const FILES = [
   "./",
