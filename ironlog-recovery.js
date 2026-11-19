@@ -797,36 +797,90 @@
   // ---------- BUTTON EVENTS ----------
 
   document.addEventListener("click", event => {
-    const button = event.target.closest("[data-v13-save]");
+    const target = event.target instanceof Element
+      ? event.target
+      : event.target?.parentElement;
+
+    const button = target?.closest("[data-v13-save]");
+
     if (!button) return;
 
+    event.preventDefault();
+    event.stopPropagation();
+
     const panel = button.closest(".il-v13-panel");
-    if (!panel) return;
 
-    const getValue = key =>
-      Number(panel.querySelector(`[data-v13-field="${key}"]`)?.value || 3);
+    if (!panel) {
+      alert("IronLog: Recovery panel not found.");
+      return;
+    }
 
-    const muscles = {};
+    try {
+      const getValue = key =>
+        Number(
+          panel.querySelector(
+            `[data-v13-field="${key}"]`
+          )?.value || 3
+        );
 
-    panel.querySelectorAll("[data-v13-muscle]").forEach(input => {
-      muscles[input.dataset.v13Muscle] = Number(input.value);
-    });
+      const muscles = {};
 
-    saveRecovery({
-      sleep: getValue("sleep"),
-      stress: getValue("stress"),
-      fatigue: getValue("fatigue"),
-      muscles
-    });
-  });
+      panel.querySelectorAll(
+        "[data-v13-muscle]"
+      ).forEach(input => {
+        muscles[input.dataset.v13Muscle] =
+          Number(input.value);
+      });
+
+      const data = {
+        sleep: getValue("sleep"),
+        stress: getValue("stress"),
+        fatigue: getValue("fatigue"),
+        muscles,
+        dateKey: todayKey(),
+        savedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(data)
+      );
+
+      const verification = JSON.parse(
+        localStorage.getItem(STORAGE_KEY)
+      );
+
+      if (!verification || verification.dateKey !== todayKey()) {
+        throw new Error("Save verification failed.");
+      }
+
+      renderPanels();
+      renderExerciseWarnings();
+
+      alert("Recovery check-in saved successfully!");
+
+    } catch (error) {
+      console.error("IronLog V13 save error:", error);
+
+      alert(
+        "Recovery save failed: " + error.message
+      );
+    }
+
+  }, true);
 
   // Refresh when the existing V12.1 check-in is saved.
   document.addEventListener("click", event => {
-    if (event.target.closest("[data-il-readiness-save]")) {
+    const target = event.target instanceof Element
+      ? event.target
+      : event.target?.parentElement;
+
+    if (target?.closest("[data-il-readiness-save]")) {
       renderPanels();
       renderExerciseWarnings();
     }
   });
+ 
 
   // Initial render.
   renderPanels();
