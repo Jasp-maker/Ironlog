@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "ironlog-v25";
+const CACHE = "ironlog-shell-v26";
 
 const FILES = [
   "./",
@@ -8,8 +8,10 @@ const FILES = [
   "./icon.svg",
   "./ironlog-upgrade.js",
   "./ironlog-library.js",
-  "./ironlog-visuals.js"
+  "./ironlog-visuals.js",
+  "./ironlog-recovery.js"
 ];
+
 
 self.addEventListener("install", event => {
   event.waitUntil(
