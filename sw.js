@@ -1,5 +1,5 @@
 
-const CACHE = "ironlog-shell-v27";
+const CACHE = "ironlog-shell-v28";
 
 const FILES = [
   "./",
