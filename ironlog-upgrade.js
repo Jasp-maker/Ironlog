@@ -2081,7 +2081,9 @@
     saveDraft();
   };
 
-  window.finish = function () {
+  
+window.finish = function () {
+  try {
     const hasEntries = Object.values(draft || {}).some(rows =>
       Array.isArray(rows) &&
       rows.some(set =>
@@ -2095,10 +2097,25 @@
       return;
     }
 
+    if (typeof originalFinish !== "function") {
+      throw new Error("Original finish function was not found.");
+    }
+
     originalFinish();
+
     clearDraft();
     renderHome();
-  };
+
+  } catch (error) {
+    console.error("IronLog finish error:", error);
+
+    alert(
+      "IronLog could not complete this workout.\n\nError: " +
+      (error.message || error)
+    );
+  }
+};
+
 
   
   window.renderHome = function () {
