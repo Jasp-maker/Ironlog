@@ -3887,7 +3887,7 @@ window.finish = function () {
     db.history.forEach(record => {
       if (!plan[record.name]) return;
 
-      (record.entries || []).forEach((rows, index) => {
+      Object.entries(record.entries || {}).forEach(([index, rows]) => {
         if (
           Array.isArray(rows) &&
           rows.some(set =>
