@@ -3246,7 +3246,7 @@ window.finish = function () {
     document.head.appendChild(style);
   }
 
-  // ---------- PROGRESS TAB WRAPPER ----------
+      // ---------- PROGRESS TAB WRAPPER ----------
 
   window.renderProgress = function () {
     addStyles();
@@ -3254,6 +3254,63 @@ window.finish = function () {
     addProgressionStyles();
 
     originalRenderProgress();
+
+    // Add a delete button to each completed workout.
+    const historyCards = document.querySelectorAll(
+      "#historyList .history-card"
+    );
+
+    historyCards.forEach((card, displayIndex) => {
+      const historyIndex = db.history.length - 1 - displayIndex;
+      const record = db.history[historyIndex];
+
+      if (!record) return;
+
+      const button = document.createElement("button");
+
+      button.type = "button";
+      button.className = "danger";
+      button.textContent = "Delete workout";
+
+      button.style.width = "100%";
+      button.style.marginTop = "12px";
+      button.style.padding = "10px";
+
+      button.onclick = () => {
+        const date = record.date
+          ? new Date(record.date).toLocaleDateString()
+          : "Date unavailable";
+
+        const confirmed = confirm(
+          `Delete this completed workout?\n\n${record.name}\n${date}\n\nThis cannot be undone.`
+        );
+
+        if (!confirmed) return;
+
+        db.history.splice(historyIndex, 1);
+
+        try {
+          localStorage.setItem(
+            "ironlog_v1",
+            JSON.stringify(db)
+          );
+
+          window.renderProgress();
+
+          if (typeof window.renderHome === "function") {
+            window.renderHome();
+          }
+
+          alert("Workout deleted successfully.");
+
+        } catch (error) {
+          console.error("IronLog could not delete workout:", error);
+          alert("IronLog could not save the deletion. Please try again.");
+        }
+      };
+
+      card.appendChild(button);
+    });
 
     renderCoachDashboard();
     renderProgressionOverview();
